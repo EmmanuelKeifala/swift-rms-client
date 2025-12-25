@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { patientService } from '@/lib/api';
+import { DataTable } from '@/components/ui';
 import { 
   Plus, 
   Search, 
@@ -36,6 +38,77 @@ export default function PatientsPage() {
   const patients: Patient[] = search ? (searchData || []) : (listData?.data || []);
   const isLoading = search ? searchLoading : listLoading;
 
+  // Define columns
+  const columnHelper = createColumnHelper<Patient>();
+  
+  const columns = useMemo<ColumnDef<Patient, any>[]>(() => [
+    columnHelper.accessor(row => `${row.firstName} ${row.lastName}`, {
+      id: 'name',
+      header: 'Patient',
+      cell: info => (
+        <div className="flex items-center gap-3">
+          <div style={{ 
+            width: 36, 
+            height: 36, 
+            background: 'var(--accent)', 
+            borderRadius: 'var(--radius-full)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <User size={16} style={{ color: 'var(--muted)' }} />
+          </div>
+          <div>
+            <div className="font-medium">{info.getValue()}</div>
+            <div className="text-xs text-muted">{info.row.original.id.slice(0, 8)}...</div>
+          </div>
+        </div>
+      ),
+    }),
+    columnHelper.accessor('phone', {
+      header: 'Contact',
+      cell: info => (
+        <div className="flex items-center gap-1 text-sm">
+          <Phone size={12} style={{ color: 'var(--muted)' }} />
+          {info.getValue() || 'N/A'}
+        </div>
+      ),
+    }),
+    columnHelper.accessor('address', {
+      header: 'Address',
+      cell: info => (
+        <div className="flex items-center gap-1 text-sm text-muted">
+          <MapPin size={12} />
+          {info.getValue() || 'N/A'}
+        </div>
+      ),
+    }),
+    columnHelper.accessor('dateOfBirth', {
+      header: 'DOB',
+      cell: info => {
+        const dob = info.getValue();
+        return (
+          <div className="flex items-center gap-1 text-sm text-muted">
+            <Calendar size={12} />
+            {dob ? new Date(dob).toLocaleDateString() : 'N/A'}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor('gender', {
+      header: 'Gender',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.display({
+      id: 'actions',
+      cell: info => (
+        <Link href={`/patients/${info.row.original.id}`} className="btn btn-ghost btn-sm">
+          View
+        </Link>
+      ),
+    }),
+  ], []);
+
   return (
     <>
       <div className="page-header">
@@ -63,79 +136,19 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      <div className="table-container">
-        {isLoading ? (
-          <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
-            <div className="spinner" style={{ margin: '0 auto' }} />
-          </div>
-        ) : !patients.length ? (
-          <div style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--muted)' }}>
-            {search ? 'No patients found matching your search' : 'No patients registered yet'}
-          </div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Patient</th>
-                <th>Contact</th>
-                <th>Address</th>
-                <th>DOB</th>
-                <th>Gender</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {patients.map((patient) => (
-                <tr key={patient.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div style={{ 
-                        width: 36, 
-                        height: 36, 
-                        background: 'var(--accent)', 
-                        borderRadius: 'var(--radius-full)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <User size={16} style={{ color: 'var(--muted)' }} />
-                      </div>
-                      <div>
-                        <div className="font-medium">{patient.firstName} {patient.lastName}</div>
-                        <div className="text-xs text-muted">{patient.id.slice(0, 8)}...</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-1 text-sm">
-                      <Phone size={12} style={{ color: 'var(--muted)' }} />
-                      {patient.phone || 'N/A'}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-1 text-sm text-muted">
-                      <MapPin size={12} />
-                      {patient.address || 'N/A'}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-1 text-sm text-muted">
-                      <Calendar size={12} />
-                      {patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : 'N/A'}
-                    </div>
-                  </td>
-                  <td className="text-muted">{patient.gender}</td>
-                  <td>
-                    <Link href={`/patients/${patient.id}`} className="btn btn-ghost btn-sm">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {isLoading ? (
+        <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto' }} />
+        </div>
+      ) : (
+        <DataTable 
+          data={patients} 
+          columns={columns}
+          globalFilter={search}
+          onGlobalFilterChange={setSearch}
+          emptyMessage={search ? 'No patients found matching your search' : 'No patients registered yet'}
+        />
+      )}
 
       {patients.length > 0 && (
         <div className="flex justify-between items-center mt-4">

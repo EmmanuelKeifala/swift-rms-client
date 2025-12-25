@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui';
 import { 
   Phone, 
   Plus,
@@ -8,12 +10,8 @@ import {
   CheckCircle2,
   XCircle,
   Mic,
-  MicOff,
   PhoneCall,
   PhoneOff,
-  User,
-  MapPin,
-  AlertTriangle
 } from 'lucide-react';
 
 interface Call {
@@ -68,6 +66,51 @@ export default function CallCentrePage() {
   const activeCalls = calls.filter(c => c.status === 'active' || c.status === 'on-hold');
   const completedToday = calls.filter(c => c.status === 'completed').length;
   const missedToday = calls.filter(c => c.status === 'missed').length;
+
+  // Define columns
+  const columnHelper = createColumnHelper<Call>();
+  
+  const columns = useMemo<ColumnDef<Call, any>[]>(() => [
+    columnHelper.accessor('callerPhone', {
+      header: 'Caller',
+      cell: info => (
+        <div>
+          <div className="font-medium">{info.getValue()}</div>
+          <div className="text-xs text-muted">{info.row.original.callerName}</div>
+        </div>
+      ),
+    }),
+    columnHelper.accessor('type', {
+      header: 'Type',
+      cell: info => <CallTypeBadge type={info.getValue()} />,
+    }),
+    columnHelper.accessor('duration', {
+      header: 'Duration',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{formatDuration(info.getValue())}</span>,
+    }),
+    columnHelper.accessor('startTime', {
+      header: 'Time',
+      cell: info => (
+        <span style={{ color: 'var(--muted)', fontSize: 'var(--text-sm)' }}>
+          {info.getValue().toLocaleTimeString()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('status', {
+      header: 'Status',
+      cell: info => {
+        const status = info.getValue();
+        return (
+          <>
+            {status === 'completed' && <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />}
+            {status === 'missed' && <XCircle size={16} style={{ color: 'var(--error)' }} />}
+            {status === 'active' && <Phone size={16} style={{ color: 'var(--success)' }} />}
+            {status === 'on-hold' && <Clock size={16} style={{ color: 'var(--warning)' }} />}
+          </>
+        );
+      },
+    }),
+  ], []);
 
   return (
     <>
@@ -225,40 +268,11 @@ export default function CallCentrePage() {
         <div className="col-12">
           <div className="card">
             <h3 className="card-title mb-4">Recent Calls</h3>
-            <div className="table-container" style={{ border: 'none' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Caller</th>
-                    <th>Type</th>
-                    <th>Duration</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calls.map((call) => (
-                    <tr key={call.id}>
-                      <td>
-                        <div className="font-medium">{call.callerPhone}</div>
-                        <div className="text-xs text-muted">{call.callerName}</div>
-                      </td>
-                      <td><CallTypeBadge type={call.type} /></td>
-                      <td className="text-muted">{formatDuration(call.duration)}</td>
-                      <td className="text-muted text-sm">
-                        {call.startTime.toLocaleTimeString()}
-                      </td>
-                      <td>
-                        {call.status === 'completed' && <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />}
-                        {call.status === 'missed' && <XCircle size={16} style={{ color: 'var(--error)' }} />}
-                        {call.status === 'active' && <Phone size={16} style={{ color: 'var(--success)' }} />}
-                        {call.status === 'on-hold' && <Clock size={16} style={{ color: 'var(--warning)' }} />}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable 
+              data={calls} 
+              columns={columns}
+              emptyMessage="No calls yet"
+            />
           </div>
         </div>
       </div>

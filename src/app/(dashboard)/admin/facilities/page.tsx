@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui';
 import { 
   Building2, 
   Plus,
@@ -42,19 +44,119 @@ const facilityTypes = ['HOSPITAL', 'CHC', 'CHP', 'MCHP', 'CLINIC'];
 export default function AdminFacilitiesPage() {
   const [facilities] = useState<Facility[]>(mockFacilities);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-
-  const filteredFacilities = facilities.filter(f => {
-    const matchesSearch = !search || 
-      f.name.toLowerCase().includes(search.toLowerCase()) ||
-      f.district.toLowerCase().includes(search.toLowerCase());
-    const matchesType = !typeFilter || f.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
 
   const totalBeds = facilities.reduce((acc, f) => acc + f.totalBeds, 0);
   const totalStaff = facilities.reduce((acc, f) => acc + f.totalStaff, 0);
+
+  // Define columns
+  const columnHelper = createColumnHelper<Facility>();
+  
+  const columns = useMemo<ColumnDef<Facility, any>[]>(() => [
+    columnHelper.accessor('name', {
+      header: 'Facility',
+      cell: info => (
+        <div className="flex items-center gap-3">
+          <div style={{ 
+            width: 40, 
+            height: 40, 
+            background: info.row.original.isActive ? 'var(--accent)' : 'var(--gray-100)',
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Building2 size={20} style={{ color: info.row.original.isActive ? 'var(--muted)' : 'var(--gray-300)' }} />
+          </div>
+          <div className="font-medium">{info.getValue()}</div>
+        </div>
+      ),
+    }),
+    columnHelper.accessor('type', {
+      header: 'Type',
+      cell: info => (
+        <span style={{ 
+          padding: 'var(--space-1) var(--space-2)', 
+          background: 'var(--accent)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 'var(--text-xs)',
+          fontWeight: 500
+        }}>
+          {info.getValue()}
+        </span>
+      ),
+      filterFn: 'equalsString',
+    }),
+    columnHelper.accessor('district', {
+      header: 'District',
+      cell: info => (
+        <div className="flex items-center gap-1 text-sm text-muted">
+          <MapPin size={12} />
+          {info.getValue()}
+        </div>
+      ),
+    }),
+    columnHelper.accessor('phone', {
+      header: 'Contact',
+      cell: info => {
+        const phone = info.getValue();
+        return phone ? (
+          <div className="flex items-center gap-1 text-sm">
+            <Phone size={12} style={{ color: 'var(--muted)' }} />
+            {phone}
+          </div>
+        ) : (
+          <span className="text-muted">-</span>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: 'capacity',
+      header: 'Capacity',
+      cell: info => (
+        <div className="flex gap-4 text-sm">
+          <span className="flex items-center gap-1">
+            <BedDouble size={12} style={{ color: 'var(--muted)' }} />
+            {info.row.original.totalBeds}
+          </span>
+          <span className="flex items-center gap-1">
+            <Users size={12} style={{ color: 'var(--muted)' }} />
+            {info.row.original.totalStaff}
+          </span>
+        </div>
+      ),
+    }),
+    columnHelper.accessor('isActive', {
+      header: 'Status',
+      cell: info => {
+        const isActive = info.getValue();
+        return isActive ? (
+          <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--success)' }}>
+            <Check size={12} />
+            Active
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--muted)' }}>
+            <X size={12} />
+            Inactive
+          </span>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: 'actions',
+      cell: () => (
+        <div className="flex gap-1">
+          <button className="btn btn-ghost btn-sm btn-icon">
+            <Edit size={14} />
+          </button>
+          <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--error)' }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ),
+    }),
+  ], []);
 
   return (
     <>
@@ -102,120 +204,15 @@ export default function AdminFacilitiesPage() {
           />
           <span className="search-box-kbd">/</span>
         </div>
-        
-        <div className="filter-divider" />
-        
-        <select 
-          className="filter-select"
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-        >
-          <option value="">All Types</option>
-          {facilityTypes.map(type => (
-            <option key={type} value={type}>{type}</option>
-          ))}
-        </select>
       </div>
 
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Facility</th>
-              <th>Type</th>
-              <th>District</th>
-              <th>Contact</th>
-              <th>Capacity</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredFacilities.map((facility) => (
-              <tr key={facility.id}>
-                <td>
-                  <div className="flex items-center gap-3">
-                    <div style={{ 
-                      width: 40, 
-                      height: 40, 
-                      background: facility.isActive ? 'var(--accent)' : 'var(--gray-100)',
-                      borderRadius: 'var(--radius-md)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Building2 size={20} style={{ color: facility.isActive ? 'var(--muted)' : 'var(--gray-300)' }} />
-                    </div>
-                    <div className="font-medium">{facility.name}</div>
-                  </div>
-                </td>
-                <td>
-                  <span style={{ 
-                    padding: 'var(--space-1) var(--space-2)', 
-                    background: 'var(--accent)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: 'var(--text-xs)',
-                    fontWeight: 500
-                  }}>
-                    {facility.type}
-                  </span>
-                </td>
-                <td>
-                  <div className="flex items-center gap-1 text-sm text-muted">
-                    <MapPin size={12} />
-                    {facility.district}
-                  </div>
-                </td>
-                <td>
-                  {facility.phone ? (
-                    <div className="flex items-center gap-1 text-sm">
-                      <Phone size={12} style={{ color: 'var(--muted)' }} />
-                      {facility.phone}
-                    </div>
-                  ) : (
-                    <span className="text-muted">-</span>
-                  )}
-                </td>
-                <td>
-                  <div className="flex gap-4 text-sm">
-                    <span className="flex items-center gap-1">
-                      <BedDouble size={12} style={{ color: 'var(--muted)' }} />
-                      {facility.totalBeds}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users size={12} style={{ color: 'var(--muted)' }} />
-                      {facility.totalStaff}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  {facility.isActive ? (
-                    <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--success)' }}>
-                      <Check size={12} />
-                      Active
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--muted)' }}>
-                      <X size={12} />
-                      Inactive
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <div className="flex gap-1">
-                    <button className="btn btn-ghost btn-sm btn-icon">
-                      <Edit size={14} />
-                    </button>
-                    <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--error)' }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable 
+        data={facilities} 
+        columns={columns}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        emptyMessage="No facilities found"
+      />
 
       {/* Add Facility Modal */}
       {showAddModal && (

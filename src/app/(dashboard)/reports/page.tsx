@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui';
 import { 
   FileText, 
   Download,
@@ -23,6 +25,14 @@ interface Report {
   icon: React.ReactNode;
 }
 
+interface RecentDownload {
+  id: string;
+  report: string;
+  generated: string;
+  period: string;
+  size: string;
+}
+
 const reports: Report[] = [
   { id: '1', name: 'Monthly Referral Summary', description: 'Overview of all referrals by status, type, and facility', type: 'scheduled', frequency: 'Monthly', lastGenerated: new Date(Date.now() - 86400000), icon: <Activity size={20} /> },
   { id: '2', name: 'Facility Performance Report', description: 'Response times, acceptance rates, and capacity utilization', type: 'scheduled', frequency: 'Weekly', lastGenerated: new Date(Date.now() - 172800000), icon: <Building2 size={20} /> },
@@ -31,9 +41,45 @@ const reports: Report[] = [
   { id: '5', name: 'District Comparison', description: 'Compare referral patterns across districts', type: 'custom', icon: <BarChart3 size={20} /> },
 ];
 
+const recentDownloads: RecentDownload[] = [
+  { id: '1', report: 'Monthly Referral Summary', generated: 'Dec 1, 2024', period: 'Nov 2024', size: '2.4 MB' },
+  { id: '2', report: 'Facility Performance Report', generated: 'Nov 25, 2024', period: 'Week 47', size: '856 KB' },
+  { id: '3', report: 'Patient Outcomes Report', generated: 'Nov 1, 2024', period: 'Oct 2024', size: '1.8 MB' },
+];
+
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
+
+  // Define columns for recent downloads
+  const columnHelper = createColumnHelper<RecentDownload>();
+  
+  const columns = useMemo<ColumnDef<RecentDownload, any>[]>(() => [
+    columnHelper.accessor('report', {
+      header: 'Report',
+      cell: info => <span className="font-medium">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('generated', {
+      header: 'Generated',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('period', {
+      header: 'Period',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('size', {
+      header: 'Size',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.display({
+      id: 'actions',
+      cell: () => (
+        <button className="btn btn-ghost btn-sm">
+          <Download size={14} />
+        </button>
+      ),
+    }),
+  ], []);
 
   return (
     <>
@@ -184,54 +230,11 @@ export default function ReportsPage() {
               <FileText size={16} />
               Recent Downloads
             </h3>
-            <div className="table-container" style={{ border: 'none' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Report</th>
-                    <th>Generated</th>
-                    <th>Period</th>
-                    <th>Size</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="font-medium">Monthly Referral Summary</td>
-                    <td className="text-muted">Dec 1, 2024</td>
-                    <td className="text-muted">Nov 2024</td>
-                    <td className="text-muted">2.4 MB</td>
-                    <td>
-                      <button className="btn btn-ghost btn-sm">
-                        <Download size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="font-medium">Facility Performance Report</td>
-                    <td className="text-muted">Nov 25, 2024</td>
-                    <td className="text-muted">Week 47</td>
-                    <td className="text-muted">856 KB</td>
-                    <td>
-                      <button className="btn btn-ghost btn-sm">
-                        <Download size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="font-medium">Patient Outcomes Report</td>
-                    <td className="text-muted">Nov 1, 2024</td>
-                    <td className="text-muted">Oct 2024</td>
-                    <td className="text-muted">1.8 MB</td>
-                    <td>
-                      <button className="btn btn-ghost btn-sm">
-                        <Download size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <DataTable 
+              data={recentDownloads} 
+              columns={columns}
+              emptyMessage="No recent downloads"
+            />
           </div>
         </div>
       </div>

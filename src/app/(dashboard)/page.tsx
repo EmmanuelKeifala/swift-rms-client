@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { useAuthStore } from '@/store';
 import { referralService } from '@/lib/api';
 import { 
@@ -10,16 +11,25 @@ import {
   ArrowUpRight, 
   CheckCircle2, 
   Clock, 
-  TrendingUp,
-  TrendingDown,
-  Minus,
   ArrowRight,
   Circle,
-  LucideIcon
 } from 'lucide-react';
-import { StatCard } from '@/components/ui';
+import { StatCard, DataTable } from '@/components/ui';
 
-
+interface Referral {
+  id: string;
+  referralCode: string;
+  priority: string;
+  patient?: {
+    firstName: string;
+    lastName: string;
+  };
+  referralType: string;
+  sendingFacility?: {
+    name: string;
+  };
+  status: string;
+}
 
 function PriorityDot({ priority }: { priority: string }) {
   const getColor = (p: string) => {
@@ -69,44 +79,88 @@ export default function DashboardPage() {
     queryFn: () => referralService.listOutgoing({ page: 1, limit: 10 }),
   });
 
-  const pendingCount = pendingReferrals?.length || 0;
-  const incomingCount = incomingReferrals?.meta?.total || incomingReferrals?.data.length || 0;
-  const outgoingCount = outgoingReferrals?.meta?.total || outgoingReferrals?.data.length || 0;
-  const totalReferrals = referralsData?.meta?.total || 0;
+  const referrals: Referral[] = referralsData?.data || [];
+  const totalCount = pendingReferrals?.length || 0;
+  const incomingCount = incomingReferrals?.data?.length || 0;
+  const outgoingCount = outgoingReferrals?.data?.length || 0;
+  const pendingCount = pendingReferrals?.filter((r: any) => r.status === 'PENDING').length || 0;
+
+  // Define columns for recent referrals
+  const columnHelper = createColumnHelper<Referral>();
+  
+  const columns = useMemo<ColumnDef<Referral, any>[]>(() => [
+    columnHelper.accessor('referralCode', {
+      header: 'Code',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="link font-medium">
+          {info.getValue()}
+        </Link>
+      ),
+    }),
+    columnHelper.accessor('priority', {
+      header: 'Priority',
+      cell: info => (
+        <span className="flex items-center gap-2">
+          <PriorityDot priority={info.getValue()} />
+          <span className="text-sm">{info.getValue()}</span>
+        </span>
+      ),
+    }),
+    columnHelper.accessor(row => `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(), {
+      id: 'patient',
+      header: 'Patient',
+    }),
+    columnHelper.accessor('referralType', {
+      header: 'Type',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('sendingFacility.name', {
+      header: 'From',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('status', {
+      header: 'Status',
+      cell: info => <StatusBadge status={info.getValue()} />,
+    }),
+    columnHelper.display({
+      id: 'actions',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="btn btn-ghost btn-sm">
+          View
+        </Link>
+      ),
+    }),
+  ], []);
 
   return (
     <>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Welcome back, {user?.firstName || 'User'}</h1>
+          <h1 className="page-title">Welcome back, {user?.firstName}!</h1>
           <p className="page-subtitle">{currentDate}</p>
         </div>
-        <Link href="/referrals/new" className="btn btn-primary">
-          New Referral
-        </Link>
       </div>
 
       <div className="stats-grid">
         <StatCard
-          label="Incoming Referrals"
+          label="Total Referrals"
+          value={totalCount}
+          icon={ArrowUpRight}
+          trend="12%"
+          trendType="up"
+        />
+        <StatCard
+          label="Incoming"
           value={incomingCount}
           icon={ArrowDownLeft}
-          trend="15%"
+          trend="8%"
           trendType="up"
           variant="info"
         />
         <StatCard
-          label="Outgoing Referrals"
+          label="Outgoing"
           value={outgoingCount}
           icon={ArrowUpRight}
-          trend="5%"
-          trendType="down"
-          variant="warning"
-        />
-        <StatCard
-          label="Completed"
-          value={totalReferrals}
-          icon={CheckCircle2}
           trend="20%"
           trendType="up"
           variant="success"
@@ -131,61 +185,17 @@ export default function DashboardPage() {
               </Link>
             </div>
             
-            <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Priority</th>
-                    <th>Patient</th>
-                    <th>Type</th>
-                    <th>From</th>
-                    <th>Status</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {referralsLoading ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-                        <div className="spinner" style={{ margin: '0 auto' }} />
-                      </td>
-                    </tr>
-                  ) : !referralsData?.data.length ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', color: 'var(--muted)', padding: 'var(--space-8)' }}>
-                        No referrals found
-                      </td>
-                    </tr>
-                  ) : (
-                    referralsData.data.map((referral) => (
-                      <tr key={referral.id}>
-                        <td>
-                          <Link href={`/referrals/${referral.id}`} className="link font-medium">
-                            {referral.referralCode}
-                          </Link>
-                        </td>
-                        <td>
-                          <span className="flex items-center gap-2">
-                            <PriorityDot priority={referral.priority} />
-                            <span className="text-sm">{referral.priority}</span>
-                          </span>
-                        </td>
-                        <td>{referral.patient?.firstName} {referral.patient?.lastName}</td>
-                        <td className="text-muted">{referral.referralType}</td>
-                        <td className="text-muted">{referral.sendingFacility?.name}</td>
-                        <td><StatusBadge status={referral.status} /></td>
-                        <td>
-                          <Link href={`/referrals/${referral.id}`} className="btn btn-ghost btn-sm">
-                            View
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {referralsLoading ? (
+              <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
+                <div className="spinner" style={{ margin: '0 auto' }} />
+              </div>
+            ) : (
+              <DataTable 
+                data={referrals} 
+                columns={columns}
+                emptyMessage="No referrals found"
+              />
+            )}
           </div>
         </div>
       </div>

@@ -32,6 +32,11 @@ export const referralService = {
     return response.data.data || [];
   },
 
+  listByPatient: async (patientId: string): Promise<Referral[]> => {
+    const response = await apiClient.get<ApiResponse<Referral[]>>(`/patients/${patientId}/referrals`);
+    return response.data.data || [];
+  },
+
   get: async (id: string): Promise<Referral> => {
     const response = await apiClient.get<ApiResponse<Referral>>(`/referrals/${id}`);
     return response.data.data!;

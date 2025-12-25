@@ -15,9 +15,17 @@ export const readinessService = {
     return { data: response.data.data || [], meta: response.data.meta };
   },
 
-  getCurrent: async (): Promise<FacilityReadiness> => {
-    const response = await apiClient.get<ApiResponse<FacilityReadiness>>('/facility-readiness/current');
-    return response.data.data!;
+  getCurrent: async (): Promise<FacilityReadiness | null> => {
+    const response = await apiClient.get<ApiResponse<FacilityReadiness[]>>('/facility-readiness/current');
+    // The API returns an array of all facilities' current readiness; take the first one for single facility view
+    const data = response.data.data;
+    return data && data.length > 0 ? data[0] : null;
+  },
+
+  getAllCurrent: async (): Promise<FacilityReadiness[]> => {
+    const response = await apiClient.get<ApiResponse<FacilityReadiness[]>>('/facility-readiness/current');
+    // Returns all facilities' current readiness for admin/dispatch users
+    return response.data.data || [];
   },
 
   getLatest: async (facilityId: string): Promise<FacilityReadiness> => {
@@ -33,6 +41,11 @@ export const readinessService = {
   },
 
   create: async (data: CreateReadinessRequest): Promise<FacilityReadiness> => {
+    const response = await apiClient.post<ApiResponse<FacilityReadiness>>('/facility-readiness', data);
+    return response.data.data!;
+  },
+
+  update: async (data: CreateReadinessRequest): Promise<FacilityReadiness> => {
     const response = await apiClient.post<ApiResponse<FacilityReadiness>>('/facility-readiness', data);
     return response.data.data!;
   },

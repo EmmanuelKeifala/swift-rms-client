@@ -5,25 +5,51 @@ import { FacilitySummary } from './facility';
 
 export interface FacilityReadiness {
   id: string;
-  facility: FacilitySummary;
-  overallScore: number;
-  bedsAvailable: number;
-  bedsTotal: number;
-  bedsByWard: BedsByWard[];
-  bloodBank: BloodBankStatus;
+  facilityId: string;
+  facilityName?: string;
+  facilityCode?: string;
+  facility?: FacilitySummary;
+  reportDate: string;
+  reportedBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  // Overall score is calculated on frontend
+  overallScore?: number;
+  // Bed capacity - matching backend naming
+  bedCapacityTotal: number;
+  bedCapacityAvailable: number;
+  icuBedsTotal: number;
+  icuBedsAvailable: number;
+  // Legacy aliases for backwards compatibility
+  bedsAvailable?: number;
+  bedsTotal?: number;
+  bedsByWard?: BedsByWard[];
+  // Blood bank
+  bloodBankStatus: ReadinessLevel;
+  bloodUnitsAPositive: number;
+  bloodUnitsANegative: number;
+  bloodUnitsBPositive: number;
+  bloodUnitsBNegative: number;
+  bloodUnitsOPositive: number;
+  bloodUnitsONegative: number;
+  bloodUnitsABPositive: number;
+  bloodUnitsABNegative: number;
+  bloodBank?: BloodBankStatus;
+  // Resources
   oxygenStatus: ReadinessLevel;
   oxygenCylinders: number;
   staffingStatus: ReadinessLevel;
   doctorsOnDuty: number;
   nursesOnDuty: number;
-  specialistsAvailable: string[];
-  equipmentStatus: EquipmentStatus[];
+  specialistsAvailable?: string[];
+  equipmentStatus?: EquipmentStatus[];
   emergencySuppliesStatus: ReadinessLevel;
-  emergencySupplies: string[];
-  theatreAvailable: boolean;
+  emergencySupplies?: string[];
+  theatreStatus?: string;
+  theatreAvailable?: boolean;
   operatingRoomsAvailable: number;
-  reportedBy: string;
-  reportedAt: string;
   createdAt: string;
 }
 
@@ -51,22 +77,37 @@ export interface EquipmentStatus {
   working: number;
 }
 
+// Backend DTO - matches internal/dto/readiness_dto.go CreateReadinessRequest
+export interface BloodUnits {
+  aPositive: number;
+  aNegative: number;
+  bPositive: number;
+  bNegative: number;
+  oPositive: number;
+  oNegative: number;
+  abPositive: number;
+  abNegative: number;
+}
+
 export interface CreateReadinessRequest {
-  bedsAvailable: number;
-  bedsTotal: number;
-  bedsByWard?: BedsByWard[];
-  bloodUnits?: BloodUnit[];
-  oxygenStatus: ReadinessLevel;
+  reportDate: string; // YYYY-MM-DD format
+  bedCapacityTotal: number;
+  bedCapacityAvailable: number;
+  icuBedsTotal?: number;
+  icuBedsAvailable?: number;
+  oxygenStatus: 'ADEQUATE' | 'LOW' | 'CRITICAL' | 'UNAVAILABLE';
   oxygenCylinders?: number;
-  staffingStatus: ReadinessLevel;
+  bloodBankStatus: 'ADEQUATE' | 'LOW' | 'CRITICAL' | 'UNAVAILABLE';
+  bloodUnits?: BloodUnits;
+  staffingStatus: 'FULLY_STAFFED' | 'ADEQUATE' | 'UNDERSTAFFED' | 'CRITICAL';
   doctorsOnDuty?: number;
   nursesOnDuty?: number;
   specialistsAvailable?: string[];
-  equipmentStatus?: EquipmentStatus[];
-  emergencySuppliesStatus: ReadinessLevel;
-  emergencySupplies?: string[];
-  theatreAvailable?: boolean;
+  equipmentStatus?: Record<string, { total: number; working: number }>;
+  emergencySuppliesStatus: 'ADEQUATE' | 'LOW' | 'CRITICAL' | 'UNAVAILABLE';
   operatingRoomsAvailable?: number;
+  theatreStatus?: string;
+  notes?: string;
 }
 
 export interface BedMonitoring {

@@ -1,9 +1,11 @@
 'use client';
 
-import { use } from 'react';
+import { use, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { patientService, referralService } from '@/lib/api';
+import { DataTable } from '@/components/ui';
 import { 
   ArrowLeft, 
   User, 
@@ -16,6 +18,17 @@ import {
 
 interface Props {
   params: Promise<{ id: string }>;
+}
+
+interface Referral {
+  id: string;
+  referralCode: string;
+  referralType: string;
+  status: string;
+  receivingFacility?: {
+    name: string;
+  };
+  createdAt: string;
 }
 
 export default function PatientDetailPage({ params }: Props) {
@@ -31,6 +44,52 @@ export default function PatientDetailPage({ params }: Props) {
     queryFn: () => referralService.listByPatient(id),
     enabled: !!patient,
   });
+
+  // Define columns for referral history
+  const columnHelper = createColumnHelper<Referral>();
+  
+  const columns = useMemo<ColumnDef<Referral, any>[]>(() => [
+    columnHelper.accessor('referralCode', {
+      header: 'Code',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="link font-medium">
+          {info.getValue()}
+        </Link>
+      ),
+    }),
+    columnHelper.accessor('referralType', {
+      header: 'Type',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('status', {
+      header: 'Status',
+      cell: info => (
+        <span className={`badge badge-${info.getValue().toLowerCase().replace(/_/g, '-')}`}>
+          {info.getValue().replace(/_/g, ' ')}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('receivingFacility.name', {
+      header: 'Facility',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue() || '-'}</span>,
+    }),
+    columnHelper.accessor('createdAt', {
+      header: 'Date',
+      cell: info => (
+        <span style={{ color: 'var(--muted)', fontSize: 'var(--text-sm)' }}>
+          {new Date(info.getValue()).toLocaleDateString()}
+        </span>
+      ),
+    }),
+    columnHelper.display({
+      id: 'actions',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="btn btn-ghost btn-sm">
+          View
+        </Link>
+      ),
+    }),
+  ], []);
 
   if (isLoading) {
     return (
@@ -121,16 +180,8 @@ export default function PatientDetailPage({ params }: Props) {
             </h3>
             <div className="flex flex-col gap-3">
               <div className="flex justify-between">
-                <span className="text-muted">Village</span>
-                <span>{patient.village || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Chiefdom</span>
-                <span>{patient.chiefdom || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">District</span>
-                <span>{patient.district || 'N/A'}</span>
+                <span className="text-muted">Address</span>
+                <span>{patient.address || 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -148,52 +199,11 @@ export default function PatientDetailPage({ params }: Props) {
               </Link>
             </div>
             
-            {referrals?.length ? (
-              <div className="table-container" style={{ border: 'none' }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Type</th>
-                      <th>Status</th>
-                      <th>Facility</th>
-                      <th>Date</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {referrals.map((ref) => (
-                      <tr key={ref.id}>
-                        <td>
-                          <Link href={`/referrals/${ref.id}`} className="link font-medium">
-                            {ref.referralCode}
-                          </Link>
-                        </td>
-                        <td className="text-muted">{ref.referralType}</td>
-                        <td>
-                          <span className={`badge badge-${ref.status.toLowerCase().replace(/_/g, '-')}`}>
-                            {ref.status.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td className="text-muted">{ref.receivingFacility?.name || '-'}</td>
-                        <td className="text-muted text-sm">
-                          {new Date(ref.createdAt).toLocaleDateString()}
-                        </td>
-                        <td>
-                          <Link href={`/referrals/${ref.id}`} className="btn btn-ghost btn-sm">
-                            View
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 'var(--space-8)' }}>
-                No referral history
-              </div>
-            )}
+            <DataTable 
+              data={referrals || []} 
+              columns={columns}
+              emptyMessage="No referral history"
+            />
           </div>
         </div>
       </div>

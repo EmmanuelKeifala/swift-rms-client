@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { readinessService } from '@/lib/api';
+import { DataTable } from '@/components/ui';
 import { 
   ArrowLeft, 
   Save,
@@ -29,7 +31,9 @@ interface BloodUnit {
 }
 
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const statusOptions = ['ADEQUATE', 'LOW', 'CRITICAL'];
+const statusOptions = ['ADEQUATE', 'LOW', 'CRITICAL', 'UNAVAILABLE'];
+const staffingStatusOptions = ['FULLY_STAFFED', 'ADEQUATE', 'UNDERSTAFFED', 'CRITICAL'];
+
 
 export default function UpdateReadinessPage() {
   const router = useRouter();
@@ -54,18 +58,47 @@ export default function UpdateReadinessPage() {
   ]);
 
   const mutation = useMutation({
-    mutationFn: () => readinessService.update({
-      bedsAvailable,
-      bedsTotal,
-      doctorsOnDuty,
-      nursesOnDuty,
-      oxygenStatus,
-      staffingStatus,
-      emergencySuppliesStatus,
-      theatreAvailable,
-      bloodBank: { units: bloodBank },
-      bedsByWard: wards,
-    }),
+    mutationFn: () => {
+      // Transform blood bank array to backend format
+      const bloodTypeKeyMap: Record<string, string> = {
+        'A+': 'aPositive',
+        'A-': 'aNegative',
+        'B+': 'bPositive',
+        'B-': 'bNegative',
+        'AB+': 'abPositive',
+        'AB-': 'abNegative',
+        'O+': 'oPositive',
+        'O-': 'oNegative',
+      };
+      const bloodUnitsMap = bloodBank.reduce((acc, b) => {
+        const key = bloodTypeKeyMap[b.type] || b.type;
+        return { ...acc, [key]: b.units };
+      }, {} as Record<string, number>);
+
+      return readinessService.update({
+        reportDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+        bedCapacityTotal: bedsTotal,
+        bedCapacityAvailable: bedsAvailable,
+        oxygenStatus: oxygenStatus as 'ADEQUATE' | 'LOW' | 'CRITICAL' | 'UNAVAILABLE',
+        bloodBankStatus: (bloodBank.some(b => b.units > 10) ? 'ADEQUATE' : bloodBank.some(b => b.units > 0) ? 'LOW' : 'CRITICAL') as 'ADEQUATE' | 'LOW' | 'CRITICAL' | 'UNAVAILABLE',
+        bloodUnits: {
+          aPositive: bloodUnitsMap['aPositive'] || 0,
+          aNegative: bloodUnitsMap['aNegative'] || 0,
+          bPositive: bloodUnitsMap['bPositive'] || 0,
+          bNegative: bloodUnitsMap['bNegative'] || 0,
+          oPositive: bloodUnitsMap['oPositive'] || 0,
+          oNegative: bloodUnitsMap['oNegative'] || 0,
+          abPositive: bloodUnitsMap['abPositive'] || 0,
+          abNegative: bloodUnitsMap['abNegative'] || 0,
+        },
+        staffingStatus: staffingStatus as 'FULLY_STAFFED' | 'ADEQUATE' | 'UNDERSTAFFED' | 'CRITICAL',
+        doctorsOnDuty,
+        nursesOnDuty,
+        emergencySuppliesStatus: emergencySuppliesStatus as 'ADEQUATE' | 'LOW' | 'CRITICAL' | 'UNAVAILABLE',
+        operatingRoomsAvailable: theatreAvailable ? 1 : 0,
+        theatreStatus: theatreAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['readiness'] });
       router.push('/readiness');
@@ -83,6 +116,65 @@ export default function UpdateReadinessPage() {
       i === index ? { ...w, [field]: Math.max(0, value) } : w
     ));
   };
+
+  // Define columns for ward status
+  const columnHelper = createColumnHelper<WardBed>();
+  
+  const columns = useMemo<ColumnDef<WardBed, any>[]>(() => [
+    columnHelper.accessor('wardName', {
+      header: 'Ward',
+      cell: info => <span className="font-medium">{info.getValue()}</span>,
+    }),
+    columnHelper.display({
+      id: 'available',
+      header: 'Available',
+      cell: info => (
+        <input 
+          type="number" 
+          className="form-input" 
+          style={{ width: 80 }}
+          value={info.row.original.available}
+          onChange={(e) => updateWard(info.row.index, 'available', parseInt(e.target.value) || 0)}
+        />
+      ),
+    }),
+    columnHelper.display({
+      id: 'total',
+      header: 'Total',
+      cell: info => (
+        <input 
+          type="number" 
+          className="form-input" 
+          style={{ width: 80 }}
+          value={info.row.original.total}
+          onChange={(e) => updateWard(info.row.index, 'total', parseInt(e.target.value) || 0)}
+        />
+      ),
+    }),
+    columnHelper.display({
+      id: 'occupancy',
+      header: 'Occupancy',
+      cell: info => {
+        const ward = info.row.original;
+        const occupancy = ward.total ? ((ward.total - ward.available) / ward.total) * 100 : 0;
+        return (
+          <div style={{ 
+            width: 100,
+            height: 6, 
+            background: 'var(--accent)', 
+            borderRadius: 'var(--radius-full)',
+            overflow: 'hidden'
+          }}>
+            <div style={{ 
+              width: `${occupancy}%`,
+              height: '100%',
+              background: 'var(--foreground)'
+            }} />
+          </div>
+        );
+      },
+    }),
+  ], []);
 
   return (
     <>
@@ -204,7 +296,7 @@ export default function UpdateReadinessPage() {
                 value={staffingStatus}
                 onChange={(e) => setStaffingStatus(e.target.value)}
               >
-                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                {staffingStatusOptions.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
@@ -214,58 +306,11 @@ export default function UpdateReadinessPage() {
         <div className="col-12">
           <div className="card">
             <h3 className="card-title mb-4">Ward-by-Ward Status</h3>
-            <div className="table-container" style={{ border: 'none' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Ward</th>
-                    <th>Available</th>
-                    <th>Total</th>
-                    <th>Occupancy</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {wards.map((ward, i) => (
-                    <tr key={ward.wardName}>
-                      <td className="font-medium">{ward.wardName}</td>
-                      <td>
-                        <input 
-                          type="number" 
-                          className="form-input" 
-                          style={{ width: 80 }}
-                          value={ward.available}
-                          onChange={(e) => updateWard(i, 'available', parseInt(e.target.value) || 0)}
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          type="number" 
-                          className="form-input" 
-                          style={{ width: 80 }}
-                          value={ward.total}
-                          onChange={(e) => updateWard(i, 'total', parseInt(e.target.value) || 0)}
-                        />
-                      </td>
-                      <td>
-                        <div style={{ 
-                          width: 100,
-                          height: 6, 
-                          background: 'var(--accent)', 
-                          borderRadius: 'var(--radius-full)',
-                          overflow: 'hidden'
-                        }}>
-                          <div style={{ 
-                            width: `${ward.total ? ((ward.total - ward.available) / ward.total) * 100 : 0}%`,
-                            height: '100%',
-                            background: 'var(--foreground)'
-                          }} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable 
+              data={wards} 
+              columns={columns}
+              emptyMessage="No wards configured"
+            />
           </div>
         </div>
 

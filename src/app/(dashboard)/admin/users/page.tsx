@@ -1,10 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  createColumnHelper,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+  type ColumnFiltersState,
+} from '@tanstack/react-table';
 import { userService, facilityService } from '@/lib/api';
 import type { CreateUserRequest } from '@/types/user';
 import { UserType } from '@/types';
@@ -12,8 +23,9 @@ import {
   Users, 
   Plus,
   Search,
-  MoreVertical,
-  Shield,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Building2,
   Phone,
   Mail,
@@ -35,6 +47,21 @@ const userSchema = z.object({
 
 type UserFormData = z.infer<typeof userSchema>;
 
+interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email?: string;
+  userType: string;
+  status: string;
+  facility?: {
+    id: string;
+    name: string;
+  };
+  createdAt: string;
+}
+
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, { bg: string; text: string }> = {
     SYSTEM_ADMIN: { bg: 'var(--error-light)', text: 'var(--error)' },
@@ -54,7 +81,8 @@ function RoleBadge({ role }: { role: string }) {
       color: c.text,
       borderRadius: 'var(--radius-sm)',
       fontSize: 'var(--text-xs)',
-      fontWeight: 500
+      fontWeight: 500,
+      whiteSpace: 'nowrap'
     }}>
       {role.replace(/_/g, ' ')}
     </span>
@@ -62,8 +90,9 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export default function AdminUsersPage() {
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [facilitySearch, setFacilitySearch] = useState('');
   const queryClient = useQueryClient();
@@ -97,15 +126,7 @@ export default function AdminUsersPage() {
     },
   });
 
-  const users = usersData?.data || [];
-
-  const filteredUsers = users.filter((u: any) => {
-    const matchesSearch = !search || 
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      u.phone.includes(search);
-    const matchesRole = !roleFilter || u.userType === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  const users: User[] = usersData?.data || [];
 
   const roles: UserType[] = [
     'SYSTEM_ADMIN', 
@@ -119,6 +140,112 @@ export default function AdminUsersPage() {
   ];
 
   const selectedFacilityId = watch('facilityId');
+
+  // Define columns
+  const columnHelper = createColumnHelper<User>();
+  
+  const columns = useMemo<ColumnDef<User, any>[]>(() => [
+    columnHelper.accessor(row => `${row.firstName} ${row.lastName}`, {
+      id: 'name',
+      header: 'User',
+      cell: info => (
+        <div className="font-medium">{info.getValue()}</div>
+      ),
+    }),
+    columnHelper.accessor('phone', {
+      header: 'Contact',
+      cell: info => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
+            <Phone size={12} style={{ color: 'var(--muted)' }} />
+            {info.getValue()}
+          </span>
+          {info.row.original.email && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>
+              <Mail size={12} />
+              {info.row.original.email}
+            </span>
+          )}
+        </div>
+      ),
+    }),
+    columnHelper.accessor('userType', {
+      header: 'Role',
+      cell: info => <RoleBadge role={info.getValue()} />,
+      filterFn: 'equalsString',
+    }),
+    columnHelper.accessor('facility', {
+      header: 'Facility',
+      cell: info => {
+        const facility = info.getValue();
+        return facility ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>
+            <Building2 size={12} />
+            {facility.name}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--muted)' }}>-</span>
+        );
+      },
+    }),
+    columnHelper.accessor('status', {
+      header: 'Status',
+      cell: info => {
+        const status = info.getValue();
+        return status === 'ACTIVE' ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-xs)', color: 'var(--success)' }}>
+            <Check size={12} />
+            Active
+          </span>
+        ) : (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+            <X size={12} />
+            Inactive
+          </span>
+        );
+      },
+    }),
+    columnHelper.accessor('createdAt', {
+      header: 'Created',
+      cell: info => (
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+          {new Date(info.getValue()).toLocaleDateString()}
+        </span>
+      ),
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: 'Actions',
+      cell: () => (
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          <button className="btn btn-ghost btn-sm btn-icon">
+            <Edit size={14} />
+          </button>
+          <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--error)' }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ),
+    }),
+  ], []);
+
+  const table = useReactTable({
+    data: users,
+    columns,
+    state: {
+      globalFilter,
+      sorting,
+      columnFilters,
+    },
+    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  const roleFilter = (columnFilters.find(f => f.id === 'userType')?.value as string) ?? '';
 
   return (
     <>
@@ -141,19 +268,19 @@ export default function AdminUsersPage() {
         <div className="stat-card">
           <div className="stat-label">Active</div>
           <div className="stat-value" style={{ color: 'var(--success)' }}>
-            {users.filter((u: any) => u.status === 'ACTIVE').length}
+            {users.filter(u => u.status === 'ACTIVE').length}
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Admins</div>
           <div className="stat-value">
-            {users.filter((u: any) => u.userType === 'SYSTEM_ADMIN').length}
+            {users.filter(u => u.userType === 'SYSTEM_ADMIN').length}
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Hospital Staff</div>
           <div className="stat-value">
-            {users.filter((u: any) => u.userType === 'HOSPITAL_DESK').length}
+            {users.filter(u => u.userType === 'HOSPITAL_DESK').length}
           </div>
         </div>
       </div>
@@ -164,9 +291,9 @@ export default function AdminUsersPage() {
           <input
             type="text"
             className="search-box-input"
-            placeholder="Search by name or phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, phone, or email..."
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
           />
           <span className="search-box-kbd">/</span>
         </div>
@@ -176,7 +303,7 @@ export default function AdminUsersPage() {
         <select 
           className="filter-select"
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
+          onChange={(e) => table.getColumn('userType')?.setFilterValue(e.target.value || undefined)}
         >
           <option value="">All Roles</option>
           {roles.map(role => (
@@ -190,82 +317,86 @@ export default function AdminUsersPage() {
           <div className="spinner" style={{ margin: '0 auto' }} />
         </div>
       ) : (
-        <div className="card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Contact</th>
-                <th>Role</th>
-                <th>Facility</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th style={{ width: 80 }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user: any) => (
-                <tr key={user.id}>
-                  <td>
-                    <div className="font-medium">{user.firstName} {user.lastName}</div>
-                  </td>
-                  <td>
-                    <div className="flex flex-col gap-1">
-                      <span className="flex items-center gap-2 text-sm">
-                        <Phone size={12} style={{ color: 'var(--muted)' }} />
-                        {user.phone}
-                      </span>
-                      {user.email && (
-                        <span className="flex items-center gap-2 text-sm text-muted">
-                          <Mail size={12} />
-                          {user.email}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <RoleBadge role={user.userType} />
-                  </td>
-                  <td className="text-sm text-muted">
-                    {user.facility ? (
-                      <span className="flex items-center gap-2">
-                        <Building2 size={12} />
-                        {user.facility.name}
-                      </span>
-                    ) : (
-                      <span>-</span>
-                    )}
-                  </td>
-                  <td>
-                    {user.status === 'ACTIVE' ? (
-                      <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--success)' }}>
-                        <Check size={12} />
-                        Active
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--muted)' }}>
-                        <X size={12} />
-                        Inactive
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-muted text-xs">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button className="btn btn-ghost btn-sm btn-icon">
-                        <Edit size={14} />
-                      </button>
-                      <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--error)' }}>
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        style={{
+                          padding: 'var(--space-4)',
+                          textAlign: 'left',
+                          fontWeight: 600,
+                          fontSize: 'var(--text-sm)',
+                          color: 'var(--muted)',
+                          background: 'var(--accent)',
+                          cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                          userSelect: 'none',
+                        }}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getCanSort() && (
+                            <span style={{ opacity: 0.5 }}>
+                              {header.column.getIsSorted() === 'asc' ? (
+                                <ArrowUp size={14} />
+                              ) : header.column.getIsSorted() === 'desc' ? (
+                                <ArrowDown size={14} />
+                              ) : (
+                                <ArrowUpDown size={14} />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.length === 0 ? (
+                  <tr>
+                    <td 
+                      colSpan={columns.length} 
+                      style={{ 
+                        padding: 'var(--space-8)', 
+                        textAlign: 'center', 
+                        color: 'var(--muted)' 
+                      }}
+                    >
+                      No users found
+                    </td>
+                  </tr>
+                ) : (
+                  table.getRowModel().rows.map(row => (
+                    <tr 
+                      key={row.id}
+                      style={{
+                        borderBottom: '1px solid var(--border)',
+                        transition: 'background 0.15s ease',
+                      }}
+                      className="hover-bg"
+                    >
+                      {row.getVisibleCells().map(cell => (
+                        <td
+                          key={cell.id}
+                          style={{
+                            padding: 'var(--space-4)',
+                          }}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

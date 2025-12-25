@@ -1,1 +1,2 @@
-export * from './StatCard';
+export { StatCard } from './StatCard';
+export { DataTable } from './DataTable';

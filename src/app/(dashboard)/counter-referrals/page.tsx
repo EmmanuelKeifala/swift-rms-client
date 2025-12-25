@@ -1,17 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { referralService } from '@/lib/api';
+import {DataTable } from '@/components/ui';
 import { 
   RefreshCw, 
   Plus,
-  Circle,
   ArrowRight,
   Clock,
   CheckCircle2
 } from 'lucide-react';
+
+interface Referral {
+  id: string;
+  referralCode: string;
+  patient?: {
+    firstName: string;
+    lastName: string;
+  };
+  sendingFacility?: {
+    name: string;
+  };
+  receivingFacility?: {
+    name: string;
+  };
+  referralType: string;
+  status: string;
+  createdAt: string;
+}
 
 function StatusBadge({ status }: { status: string }) {
   return (
@@ -34,8 +53,59 @@ export default function CounterReferralsPage() {
     queryFn: () => referralService.listIncoming({ page: 1, limit: 20 }),
   });
 
-  const referrals = tab === 'outgoing' ? outgoing?.data : incoming?.data;
+  const referrals: Referral[] = (tab === 'outgoing' ? outgoing?.data : incoming?.data) || [];
   const isLoading = tab === 'outgoing' ? loadingOut : loadingIn;
+
+  // Define columns
+  const columnHelper = createColumnHelper<Referral>();
+  
+  const columns = useMemo<ColumnDef<Referral, any>[]>(() => [
+    columnHelper.accessor('referralCode', {
+      header: 'Code',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="link font-medium">
+          {info.getValue()}
+        </Link>
+      ),
+    }),
+    columnHelper.accessor(row => `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(), {
+      id: 'patient',
+      header: 'Patient',
+    }),
+    columnHelper.accessor(row => tab === 'outgoing' ? row.receivingFacility?.name : row.sendingFacility?.name, {
+      id: 'facility',
+      header: () => tab === 'outgoing' ? 'To' : 'From',
+      cell: info => (
+        <span style={{ color: 'var(--muted)', maxWidth: 150, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('referralType', {
+      header: 'Type',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('status', {
+      header: 'Status',
+      cell: info => <StatusBadge status={info.getValue()} />,
+    }),
+    columnHelper.accessor('createdAt', {
+      header: 'Date',
+      cell: info => (
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+          {new Date(info.getValue()).toLocaleDateString()}
+        </span>
+      ),
+    }),
+    columnHelper.display({
+      id: 'actions',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="btn btn-ghost btn-sm">
+          View
+        </Link>
+      ),
+    }),
+  ], [tab]);
 
   return (
     <>
@@ -72,7 +142,7 @@ export default function CounterReferralsPage() {
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <div className="stat-card">
           <div className="stat-label">Pending</div>
-          <div className="stat-value">{referrals?.filter(r => r.status === 'PENDING').length || 0}</div>
+          <div className="stat-value">{referrals.filter(r => r.status === 'PENDING').length}</div>
           <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: 'var(--warning)' }}>
             <Clock size={12} />
             Awaiting action
@@ -80,11 +150,11 @@ export default function CounterReferralsPage() {
         </div>
         <div className="stat-card">
           <div className="stat-label">In Progress</div>
-          <div className="stat-value">{referrals?.filter(r => ['ACCEPTED', 'IN_TRANSIT'].includes(r.status)).length || 0}</div>
+          <div className="stat-value">{referrals.filter(r => ['ACCEPTED', 'IN_TRANSIT'].includes(r.status)).length}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Completed</div>
-          <div className="stat-value">{referrals?.filter(r => r.status === 'COMPLETED').length || 0}</div>
+          <div className="stat-value">{referrals.filter(r => r.status === 'COMPLETED').length}</div>
           <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: 'var(--success)' }}>
             <CheckCircle2 size={12} />
             This month
@@ -92,56 +162,17 @@ export default function CounterReferralsPage() {
         </div>
       </div>
 
-      <div className="table-container">
-        {isLoading ? (
-          <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
-            <div className="spinner" style={{ margin: '0 auto' }} />
-          </div>
-        ) : !referrals?.length ? (
-          <div style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--muted)' }}>
-            No counter-referrals found
-          </div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Patient</th>
-                <th>{tab === 'outgoing' ? 'To' : 'From'}</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {referrals.map((ref) => (
-                <tr key={ref.id}>
-                  <td>
-                    <Link href={`/referrals/${ref.id}`} className="link font-medium">
-                      {ref.referralCode}
-                    </Link>
-                  </td>
-                  <td>{ref.patient?.firstName} {ref.patient?.lastName}</td>
-                  <td className="text-muted truncate" style={{ maxWidth: 150 }}>
-                    {tab === 'outgoing' ? ref.receivingFacility?.name : ref.sendingFacility?.name}
-                  </td>
-                  <td className="text-muted">{ref.referralType}</td>
-                  <td><StatusBadge status={ref.status} /></td>
-                  <td className="text-xs text-muted">
-                    {new Date(ref.createdAt).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <Link href={`/referrals/${ref.id}`} className="btn btn-ghost btn-sm">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {isLoading ? (
+        <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto' }} />
+        </div>
+      ) : (
+        <DataTable 
+          data={referrals} 
+          columns={columns}
+          emptyMessage="No counter-referrals found"
+        />
+      )}
     </>
   );
 }

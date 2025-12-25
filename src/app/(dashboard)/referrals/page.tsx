@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { referralService } from '@/lib/api';
 import { ReferralStatus, Priority, ReferralType } from '@/types';
+import { DataTable } from '@/components/ui';
 import { 
   Plus, 
   Circle, 
@@ -14,6 +16,25 @@ import {
   X,
   Search
 } from 'lucide-react';
+
+interface Referral {
+  id: string;
+  referralCode: string;
+  priority: string;
+  patient?: {
+    firstName: string;
+    lastName: string;
+  };
+  referralType: string;
+  sendingFacility?: {
+    name: string;
+  };
+  receivingFacility?: {
+    name: string;
+  };
+  status: string;
+  createdAt: string;
+}
 
 function PriorityIndicator({ priority }: { priority: string }) {
   const getColor = (p: string) => {
@@ -57,7 +78,7 @@ export default function ReferralsPage() {
     queryFn: () => referralService.list({ page, limit, ...filters }),
   });
 
-  const referrals = data?.data || [];
+  const referrals: Referral[] = data?.data || [];
   const meta = data?.meta;
   const totalPages = meta?.totalPages || 1;
 
@@ -72,6 +93,68 @@ export default function ReferralsPage() {
   };
 
   const hasFilters = Object.values(filters).some(Boolean);
+
+  // Define columns
+  const columnHelper = createColumnHelper<Referral>();
+  
+  const columns = useMemo<ColumnDef<Referral, any>[]>(() => [
+    columnHelper.accessor('referralCode', {
+      header: 'Code',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="link font-medium">
+          {info.getValue()}
+        </Link>
+      ),
+    }),
+    columnHelper.accessor('priority', {
+      header: 'Priority',
+      cell: info => <PriorityIndicator priority={info.getValue()} />,
+    }),
+    columnHelper.accessor(row => `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(), {
+      id: 'patient',
+      header: 'Patient',
+    }),
+    columnHelper.accessor('referralType', {
+      header: 'Type',
+      cell: info => <span style={{ color: 'var(--muted)' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('sendingFacility.name', {
+      header: 'From',
+      cell: info => (
+        <span style={{ color: 'var(--muted)', maxWidth: 150, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('receivingFacility.name', {
+      header: 'To',
+      cell: info => (
+        <span style={{ color: 'var(--muted)', maxWidth: 150, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('status', {
+      header: 'Status',
+      cell: info => <StatusBadge status={info.getValue()} />,
+    }),
+    columnHelper.accessor('createdAt', {
+      header: 'Date',
+      cell: info => (
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+          {new Date(info.getValue()).toLocaleDateString()}
+        </span>
+      ),
+    }),
+    columnHelper.display({
+      id: 'actions',
+      cell: info => (
+        <Link href={`/referrals/${info.row.original.id}`} className="btn btn-ghost btn-sm">
+          View
+        </Link>
+      ),
+    }),
+  ], []);
 
   return (
     <>
@@ -151,62 +234,23 @@ export default function ReferralsPage() {
       </div>
 
       {/* Table */}
-      <div className="table-container">
-        {isLoading ? (
-          <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
-            <div className="spinner" style={{ margin: '0 auto' }} />
-          </div>
-        ) : error ? (
-          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--error)' }}>
-            Failed to load referrals
-          </div>
-        ) : !referrals.length ? (
-          <div style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--muted)' }}>
-            No referrals found
-          </div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Priority</th>
-                <th>Patient</th>
-                <th>Type</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {referrals.map((referral) => (
-                <tr key={referral.id}>
-                  <td>
-                    <Link href={`/referrals/${referral.id}`} className="link font-medium">
-                      {referral.referralCode}
-                    </Link>
-                  </td>
-                  <td><PriorityIndicator priority={referral.priority} /></td>
-                  <td>{referral.patient?.firstName} {referral.patient?.lastName}</td>
-                  <td className="text-muted">{referral.referralType}</td>
-                  <td className="text-muted truncate" style={{ maxWidth: 150 }}>{referral.sendingFacility?.name}</td>
-                  <td className="text-muted truncate" style={{ maxWidth: 150 }}>{referral.receivingFacility?.name}</td>
-                  <td><StatusBadge status={referral.status} /></td>
-                  <td className="text-muted text-xs">
-                    {new Date(referral.createdAt).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <Link href={`/referrals/${referral.id}`} className="btn btn-ghost btn-sm">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {isLoading ? (
+        <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto' }} />
+        </div>
+      ) : error ? (
+        <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--error)' }}>
+          Failed to load referrals
+        </div>
+      ) : (
+        <DataTable 
+          data={referrals} 
+          columns={columns}
+          globalFilter={search}
+          onGlobalFilterChange={setSearch}
+          emptyMessage="No referrals found"
+        />
+      )}
 
       {/* Pagination */}
       {meta && totalPages > 1 && (
