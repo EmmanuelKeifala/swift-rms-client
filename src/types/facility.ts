@@ -12,8 +12,9 @@ export interface FacilitySummary {
 export interface Facility {
   id: string;
   name: string;
-  code: string;
+  facilityCode: string;
   type: FacilityType;
+  facilityType?: FacilityType; // Backend returns this
   level: number;
   address?: string;
   district: DistrictSummary;
@@ -22,8 +23,8 @@ export interface Facility {
   phone?: string;
   email?: string;
   isActive: boolean;
-  hasEmergencyServices: boolean;
-  services: string[];
+  hasEmergencyServices?: boolean;
+  services?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -64,7 +65,7 @@ export interface UpdateFacilityRequest {
 }
 
 export interface FacilityListQuery {
-  type?: FacilityType;
+  facilityType?: string;
   districtId?: string;
   isActive?: boolean;
   page?: number;
@@ -81,4 +82,42 @@ export interface NearbyQuery {
 
 export interface FacilityWithDistance extends Facility {
   distance: number; // in km
+}
+
+// Bulk upload types
+export interface BulkUploadFacilityItem {
+  name: string;
+  facilityCode: string;
+  facilityType: string;
+  level?: number;
+  districtName?: string;
+  districtCode?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  email?: string;
+}
+
+export interface BulkUploadError {
+  row: number;
+  name?: string;
+  code?: string;
+  message: string;
+}
+
+export interface BulkUploadResult {
+  totalProcessed: number;
+  successful: number;
+  skipped: number;
+  failed: number;
+  errors?: BulkUploadError[];
+  created?: Facility[];
+}
+
+export interface FacilityStats {
+  totalFacilities: number;
+  totalDistricts: number;
+  byType: Record<string, number>;
+  byDistrict: Record<string, number>;
 }

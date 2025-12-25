@@ -6,6 +6,9 @@ import {
   FacilityListQuery,
   NearbyQuery,
   FacilityWithDistance,
+  BulkUploadFacilityItem,
+  BulkUploadResult,
+  FacilityStats,
   ApiResponse,
   PaginationMeta,
 } from '@/types';
@@ -49,5 +52,22 @@ export const facilityService = {
   getStaff: async (id: string): Promise<unknown[]> => {
     const response = await apiClient.get<ApiResponse<unknown[]>>(`/facilities/${id}/staff`);
     return response.data.data || [];
+  },
+
+  bulkUpload: async (facilities: BulkUploadFacilityItem[]): Promise<BulkUploadResult> => {
+    const response = await apiClient.post<ApiResponse<BulkUploadResult>>('/facilities/bulk-upload', { facilities });
+    return response.data.data!;
+  },
+
+  downloadTemplate: async (): Promise<Blob> => {
+    const response = await apiClient.get('/facilities/template', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  getStats: async (): Promise<FacilityStats> => {
+    const response = await apiClient.get<ApiResponse<FacilityStats>>('/facilities/stats');
+    return response.data.data!;
   },
 };

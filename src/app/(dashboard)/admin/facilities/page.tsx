@@ -1,58 +1,79 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
+import dynamic from 'next/dynamic';
+import { useQuery } from '@tanstack/react-query';
+import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui';
+import { facilityService } from '@/lib/api';
+import { Facility, FacilityStats } from '@/types';
 import { 
   Building2, 
-  Plus,
   Search,
   MapPin,
   Phone,
-  BedDouble,
-  Users,
   Edit,
-  Trash2,
-  Check,
-  X
+  Upload,
+  Filter,
+  List,
+  Map
 } from 'lucide-react';
+import Link from 'next/link';
 
-interface Facility {
-  id: string;
-  name: string;
-  type: string;
-  district: string;
-  phone?: string;
-  totalBeds: number;
-  totalStaff: number;
-  isActive: boolean;
-  coordinates?: { lat: number; lng: number };
-}
+// Dynamic import for map component (SSR incompatible)
+const FacilitiesMap = dynamic(() => import('@/components/FacilitiesMap'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="spinner" />
+    </div>
+  ),
+});
 
-const mockFacilities: Facility[] = [
-  { id: '1', name: 'Connaught Hospital', type: 'HOSPITAL', district: 'Western Area Urban', phone: '+232 22 224 365', totalBeds: 300, totalStaff: 450, isActive: true },
-  { id: '2', name: 'Princess Christian Hospital', type: 'HOSPITAL', district: 'Western Area Urban', phone: '+232 22 225 890', totalBeds: 200, totalStaff: 280, isActive: true },
-  { id: '3', name: 'Bo Government Hospital', type: 'HOSPITAL', district: 'Bo', phone: '+232 32 123 456', totalBeds: 180, totalStaff: 220, isActive: true },
-  { id: '4', name: 'Kenema Government Hospital', type: 'HOSPITAL', district: 'Kenema', totalBeds: 150, totalStaff: 180, isActive: true },
-  { id: '5', name: 'Makeni Government Hospital', type: 'HOSPITAL', district: 'Bombali', totalBeds: 120, totalStaff: 150, isActive: false },
-  { id: '6', name: 'Murray Town CHC', type: 'CHC', district: 'Western Area Urban', totalBeds: 20, totalStaff: 35, isActive: true },
-  { id: '7', name: 'Waterloo CHC', type: 'CHC', district: 'Western Area Rural', totalBeds: 15, totalStaff: 28, isActive: true },
-];
-
-const facilityTypes = ['HOSPITAL', 'CHC', 'CHP', 'MCHP', 'CLINIC'];
+const facilityTypes = ['PHU', 'DISTRICT_HOSPITAL', 'REGIONAL_HOSPITAL', 'TERTIARY_HOSPITAL'];
 
 export default function AdminFacilitiesPage() {
-  const [facilities] = useState<Facility[]>(mockFacilities);
   const [search, setSearch] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('');
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
 
-  const totalBeds = facilities.reduce((acc, f) => acc + f.totalBeds, 0);
-  const totalStaff = facilities.reduce((acc, f) => acc + f.totalStaff, 0);
+  // Fetch stats
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['facility-stats'],
+    queryFn: () => facilityService.getStats(),
+  });
+
+  // Fetch facilities with filters
+  const { data: facilitiesData, isLoading: facilitiesLoading } = useQuery({
+    queryKey: ['admin-facilities', typeFilter],
+    queryFn: () => facilityService.list({ 
+      limit: 2000,
+      facilityType: typeFilter || undefined,
+    }),
+  });
+
+  const facilities = facilitiesData?.data || [];
+
+  // Filter by district on client side (since API might not support it directly by name)
+  const filteredFacilities = useMemo(() => {
+    if (!districtFilter) return facilities;
+    return facilities.filter(f => f.district?.name === districtFilter);
+  }, [facilities, districtFilter]);
+
+  // Get unique districts for filter dropdown
+  const districts = useMemo(() => {
+    if (!stats?.byDistrict) return [];
+    return Object.keys(stats.byDistrict).sort();
+  }, [stats]);
+
+  const isLoading = statsLoading || facilitiesLoading;
 
   // Define columns
   const columnHelper = createColumnHelper<Facility>();
   
-  const columns = useMemo<ColumnDef<Facility, any>[]>(() => [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const columns = useMemo(() => [
     columnHelper.accessor('name', {
       header: 'Facility',
       cell: info => (
@@ -60,15 +81,18 @@ export default function AdminFacilitiesPage() {
           <div style={{ 
             width: 40, 
             height: 40, 
-            background: info.row.original.isActive ? 'var(--accent)' : 'var(--gray-100)',
+            background: 'var(--accent)',
             borderRadius: 'var(--radius-md)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <Building2 size={20} style={{ color: info.row.original.isActive ? 'var(--muted)' : 'var(--gray-300)' }} />
+            <Building2 size={20} style={{ color: 'var(--muted)' }} />
           </div>
-          <div className="font-medium">{info.getValue()}</div>
+          <div>
+            <div className="font-medium">{info.getValue()}</div>
+            <div className="text-xs text-muted">{info.row.original.facilityCode}</div>
+          </div>
         </div>
       ),
     }),
@@ -77,7 +101,8 @@ export default function AdminFacilitiesPage() {
       cell: info => (
         <span style={{ 
           padding: 'var(--space-1) var(--space-2)', 
-          background: 'var(--accent)',
+          background: info.getValue() === 'PHU' ? 'rgba(34, 197, 94, 0.1)' : 'var(--accent)',
+          color: info.getValue() === 'PHU' ? 'var(--success)' : 'inherit',
           borderRadius: 'var(--radius-sm)',
           fontSize: 'var(--text-xs)',
           fontWeight: 500
@@ -87,12 +112,13 @@ export default function AdminFacilitiesPage() {
       ),
       filterFn: 'equalsString',
     }),
-    columnHelper.accessor('district', {
+    columnHelper.accessor(row => row.district?.name, {
+      id: 'district',
       header: 'District',
       cell: info => (
         <div className="flex items-center gap-1 text-sm text-muted">
           <MapPin size={12} />
-          {info.getValue()}
+          {info.getValue() || 'Unknown'}
         </div>
       ),
     }),
@@ -110,53 +136,49 @@ export default function AdminFacilitiesPage() {
         );
       },
     }),
-    columnHelper.display({
-      id: 'capacity',
-      header: 'Capacity',
-      cell: info => (
-        <div className="flex gap-4 text-sm">
-          <span className="flex items-center gap-1">
-            <BedDouble size={12} style={{ color: 'var(--muted)' }} />
-            {info.row.original.totalBeds}
-          </span>
-          <span className="flex items-center gap-1">
-            <Users size={12} style={{ color: 'var(--muted)' }} />
-            {info.row.original.totalStaff}
-          </span>
-        </div>
-      ),
-    }),
-    columnHelper.accessor('isActive', {
-      header: 'Status',
+    columnHelper.accessor('address', {
+      header: 'Address',
       cell: info => {
-        const isActive = info.getValue();
-        return isActive ? (
-          <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--success)' }}>
-            <Check size={12} />
-            Active
-          </span>
+        const address = info.getValue();
+        return address ? (
+          <div className="text-sm text-muted" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {address}
+          </div>
         ) : (
-          <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--muted)' }}>
-            <X size={12} />
-            Inactive
-          </span>
+          <span className="text-muted">-</span>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: 'coordinates',
+      header: 'Coordinates',
+      cell: info => {
+        const { latitude, longitude } = info.row.original;
+        return latitude && longitude ? (
+          <div className="text-xs text-muted">
+            {Number(latitude).toFixed(4)}, {Number(longitude).toFixed(4)}
+          </div>
+        ) : (
+          <span className="text-muted">-</span>
         );
       },
     }),
     columnHelper.display({
       id: 'actions',
-      cell: () => (
+      cell: info => (
         <div className="flex gap-1">
-          <button className="btn btn-ghost btn-sm btn-icon">
+          <Link href={`/facilities/${info.row.original.id}`} className="btn btn-ghost btn-sm btn-icon">
             <Edit size={14} />
-          </button>
-          <button className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--error)' }}>
-            <Trash2 size={14} />
-          </button>
+          </Link>
         </div>
       ),
     }),
   ], []);
+
+  // Calculate totals from stats
+  const totalHospitals = (stats?.byType?.['DISTRICT_HOSPITAL'] || 0) + 
+                          (stats?.byType?.['REGIONAL_HOSPITAL'] || 0) + 
+                          (stats?.byType?.['TERTIARY_HOSPITAL'] || 0);
 
   return (
     <>
@@ -165,30 +187,38 @@ export default function AdminFacilitiesPage() {
           <h1 className="page-title">Facility Management</h1>
           <p className="page-subtitle">Manage healthcare facilities</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <Plus size={16} />
-          Add Facility
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <Link href="/facilities" className="btn btn-secondary">
+            <Upload size={16} />
+            Bulk Upload
+          </Link>
+        </div>
       </div>
 
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         <div className="stat-card">
           <div className="stat-label">Total Facilities</div>
-          <div className="stat-value">{facilities.length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Active</div>
-          <div className="stat-value" style={{ color: 'var(--success)' }}>
-            {facilities.filter(f => f.isActive).length}
+          <div className="stat-value">
+            {statsLoading ? '...' : (stats?.totalFacilities || 0).toLocaleString()}
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Total Beds</div>
-          <div className="stat-value">{totalBeds.toLocaleString()}</div>
+          <div className="stat-label">Districts Covered</div>
+          <div className="stat-value">
+            {statsLoading ? '...' : (stats?.totalDistricts || 0)}
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Total Staff</div>
-          <div className="stat-value">{totalStaff.toLocaleString()}</div>
+          <div className="stat-label">PHUs</div>
+          <div className="stat-value" style={{ color: 'var(--success)' }}>
+            {statsLoading ? '...' : (stats?.byType?.['PHU'] || 0).toLocaleString()}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Hospitals</div>
+          <div className="stat-value" style={{ color: 'var(--primary)' }}>
+            {statsLoading ? '...' : totalHospitals.toLocaleString()}
+          </div>
         </div>
       </div>
 
@@ -204,88 +234,84 @@ export default function AdminFacilitiesPage() {
           />
           <span className="search-box-kbd">/</span>
         </div>
+
+        <div className="filter-divider" />
+
+        <div className="flex items-center gap-2">
+          <Filter size={16} style={{ color: 'var(--muted)' }} />
+          <select
+            className="filter-select"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+          >
+            <option value="">All Types</option>
+            {facilityTypes.map(type => (
+              <option key={type} value={type}>
+                {type} ({stats?.byType?.[type] || 0})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <select
+          className="filter-select"
+          value={districtFilter}
+          onChange={(e) => setDistrictFilter(e.target.value)}
+        >
+          <option value="">All Districts</option>
+          {districts.map(district => (
+            <option key={district} value={district}>
+              {district} ({stats?.byDistrict?.[district] || 0})
+            </option>
+          ))}
+        </select>
+
+        {(typeFilter || districtFilter) && (
+          <button 
+            className="btn btn-ghost btn-sm"
+            onClick={() => { setTypeFilter(''); setDistrictFilter(''); }}
+          >
+            Clear Filters
+          </button>
+        )}
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-1)' }}>
+          <button
+            className={`btn btn-sm ${viewMode === 'table' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('table')}
+            title="Table View"
+          >
+            <List size={16} />
+            Table
+          </button>
+          <button
+            className={`btn btn-sm ${viewMode === 'map' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('map')}
+            title="Map View"
+          >
+            <Map size={16} />
+            Map
+          </button>
+        </div>
       </div>
 
-      <DataTable 
-        data={facilities} 
-        columns={columns}
-        globalFilter={search}
-        onGlobalFilterChange={setSearch}
-        emptyMessage="No facilities found"
-      />
-
-      {/* Add Facility Modal */}
-      {showAddModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: 'var(--space-4)'
-        }}>
-          <div className="card" style={{ maxWidth: 520, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
-            <h3 className="card-title mb-4">Add New Facility</h3>
-            <div className="form-group">
-              <label className="form-label">Facility Name</label>
-              <input type="text" className="form-input" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-              <div className="form-group">
-                <label className="form-label">Type</label>
-                <select className="form-input">
-                  {facilityTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">District</label>
-                <select className="form-input">
-                  <option>Western Area Urban</option>
-                  <option>Western Area Rural</option>
-                  <option>Bo</option>
-                  <option>Kenema</option>
-                  <option>Bombali</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Phone</label>
-              <input type="tel" className="form-input" placeholder="+232 XX XXX XXXX" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-              <div className="form-group">
-                <label className="form-label">Total Beds</label>
-                <input type="number" className="form-input" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Total Staff</label>
-                <input type="number" className="form-input" />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-              <div className="form-group">
-                <label className="form-label">Latitude</label>
-                <input type="number" step="0.000001" className="form-input" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Longitude</label>
-                <input type="number" step="0.000001" className="form-input" />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end mt-4">
-              <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
-                Cancel
-              </button>
-              <button className="btn btn-primary">
-                Create Facility
-              </button>
-            </div>
-          </div>
+      {isLoading ? (
+        <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto' }} />
         </div>
+      ) : viewMode === 'table' ? (
+        <DataTable 
+          data={filteredFacilities} 
+          columns={columns}
+          globalFilter={search}
+          onGlobalFilterChange={setSearch}
+          emptyMessage="No facilities found"
+        />
+      ) : (
+        <FacilitiesMap 
+          facilities={filteredFacilities} 
+          isLoading={isLoading} 
+        />
       )}
     </>
   );
