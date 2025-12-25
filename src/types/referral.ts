@@ -1,0 +1,151 @@
+// Referral types
+
+import { ReferralStatus, Priority, ReferralType, Outcome } from './common';
+import { PatientSummary } from './patient';
+import { FacilitySummary } from './facility';
+
+export interface Referral {
+  id: string;
+  referralCode: string;
+  patient: PatientSummary;
+  sendingFacility: FacilitySummary;
+  receivingFacility: FacilitySummary;
+  referralType: ReferralType;
+  priority: Priority;
+  status: ReferralStatus;
+  colourCode: string;
+  chiefComplaint: string;
+  clinicalSummary?: string;
+  dangerSigns: string[];
+  dangerSignScore: number;
+  vitalSigns?: VitalSigns;
+  outcome?: Outcome;
+  outcomeNotes?: string;
+  finalDiagnosis?: string;
+  notes?: string;
+  attachments?: Attachment[];
+  transportMethod?: string;
+  bloodDonorAccompanying: boolean;
+  relativeAccompanying: boolean;
+  nemsRequest?: NEMSRequestSummary;
+  createdBy: UserSummary;
+  acceptedBy?: UserSummary;
+  acceptedAt?: string;
+  arrivedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VitalSigns {
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  heartRate?: number;
+  temperature?: number;
+  respiratoryRate?: number;
+  oxygenSaturation?: number;
+}
+
+export interface Attachment {
+  id: string;
+  filename: string;
+  url: string;
+  size: number;
+  mimeType: string;
+}
+
+export interface UserSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface NEMSRequestSummary {
+  id: string;
+  status: string;
+  ambulanceId?: string;
+  dispatchedAt?: string;
+  estimatedArrival?: string;
+}
+
+export interface CreateReferralRequest {
+  patientId: string;
+  sendingFacilityId: string;
+  receivingFacilityId: string;
+  referralType: ReferralType;
+  priority: Priority;
+  colourCode?: string;
+  chiefComplaint: string;
+  clinicalSummary: string;
+  vitalSigns?: VitalSigns;
+  patientCategory?: string;
+  transportMethod?: string;
+  nemsRequired?: boolean;
+  referralDocuments?: string[];
+  bloodDonorAccompanying?: boolean;
+  relativeAccompanying?: boolean;
+  offlineRequestId?: string;
+}
+
+export interface UpdateReferralRequest {
+  status?: ReferralStatus;
+  priority?: Priority;
+  receivingFacilityId?: string;
+  rejectionReason?: string;
+  redirectReason?: string;
+  outcome?: Outcome;
+  outcomeNotes?: string;
+  finalDiagnosis?: string;
+  notes?: string;
+}
+
+export interface ReferralListQuery {
+  status?: ReferralStatus;
+  priority?: Priority;
+  referralType?: ReferralType;
+  sendingFacilityId?: string;
+  receivingFacilityId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface ReferralSummary {
+  id: string;
+  referralCode: string;
+  patientName: string;
+  priority: Priority;
+  status: ReferralStatus;
+  referralType: ReferralType;
+  chiefComplaint: string;
+  sendingFacility: string;
+  receivingFacility: string;
+  createdAt: string;
+}
+
+export interface TimelineEntry {
+  action: string;
+  timestamp: string;
+  userId?: string;
+  userName?: string;
+  notes?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AddNoteRequest {
+  notes: string;
+}
+
+export interface CreateReferralResponse {
+  id: string;
+  referralCode: string;
+  status: ReferralStatus;
+  dangerSigns: string[];
+  dangerSignScore: number;
+  colourCode: string;
+  priority: Priority;
+  createdAt: string;
+}

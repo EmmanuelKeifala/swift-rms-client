@@ -1,0 +1,133 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuthStore, useUIStore } from '@/store';
+import { authService } from '@/lib/api';
+import { 
+  Menu, 
+  Building2, 
+  Bell, 
+  User, 
+  Settings, 
+  LogOut,
+  ChevronDown
+} from 'lucide-react';
+
+export function Header() {
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const toggleMobileSidebar = useUIStore((state) => state.toggleMobileSidebar);
+  
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // Ignore
+    } finally {
+      logout();
+      router.push('/login');
+    }
+  };
+
+  const getUserInitials = () => {
+    if (!user) return '?';
+    return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  };
+
+  const formatUserType = (userType: string) => {
+    return userType.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+  };
+
+  return (
+    <header className="header">
+      <div className="header-left">
+        <button 
+          className="header-menu-btn" 
+          onClick={toggleMobileSidebar}
+          aria-label="Open menu"
+        >
+          <Menu size={20} />
+        </button>
+        
+        {user?.facility && (
+          <div className="header-badge">
+            <Building2 size={14} />
+            <span>{user.facility.name}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="header-right">
+        <button className="notification-btn" aria-label="Notifications">
+          <Bell size={18} />
+          <span className="notification-badge">3</span>
+        </button>
+
+        <div className="user-dropdown" ref={dropdownRef}>
+          <button 
+            className="user-menu"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            aria-expanded={dropdownOpen}
+          >
+            <div className="user-avatar">
+              {getUserInitials()}
+            </div>
+            <div className="user-info hide-mobile">
+              <div className="user-name">
+                {user?.firstName} {user?.lastName}
+              </div>
+              <div className="user-role">
+                {user?.userType && formatUserType(user.userType)}
+              </div>
+            </div>
+            <ChevronDown size={14} className="hide-mobile" style={{ color: 'var(--muted)' }} />
+          </button>
+
+          <div className={`dropdown-menu ${dropdownOpen ? 'open' : ''}`}>
+            <Link 
+              href="/profile" 
+              className="dropdown-item"
+              onClick={() => setDropdownOpen(false)}
+            >
+              <User size={16} />
+              Profile
+            </Link>
+            <Link 
+              href="/settings" 
+              className="dropdown-item"
+              onClick={() => setDropdownOpen(false)}
+            >
+              <Settings size={16} />
+              Settings
+            </Link>
+            <div className="dropdown-divider" />
+            <button 
+              className="dropdown-item" 
+              onClick={handleLogout}
+              style={{ color: 'var(--error)' }}
+            >
+              <LogOut size={16} />
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
