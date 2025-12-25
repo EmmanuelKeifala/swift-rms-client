@@ -33,6 +33,11 @@ export interface DistrictSummary {
   id: string;
   name: string;
   code: string;
+  region?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
 }
 
 export interface CreateFacilityRequest {

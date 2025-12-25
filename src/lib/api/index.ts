@@ -8,6 +8,7 @@ export { readinessService } from './readiness';
 export { nemsService, callCentreService } from './nems';
 export { analyticsService } from './analytics';
 export { districtService } from './districts';
+export { ambulanceService } from './ambulances';
 
 // Re-export client utilities
 export { 

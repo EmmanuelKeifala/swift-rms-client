@@ -2,6 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { facilityService } from '@/lib/api';
 import { 
@@ -15,6 +16,27 @@ import {
   Edit,
   ExternalLink
 } from 'lucide-react';
+
+// Dynamic import for map to avoid SSR issues
+const SingleFacilityMap = dynamic(
+  () => import('@/components/SingleFacilityMap'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div style={{ 
+        height: 220, 
+        background: 'var(--accent)', 
+        borderRadius: 'var(--radius-md)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--muted)'
+      }}>
+        Loading map...
+      </div>
+    )
+  }
+);
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -69,7 +91,7 @@ export default function FacilityDetailPage({ params }: Props) {
           </div>
           <div>
             <h1 className="page-title">{facility.name}</h1>
-            <p className="page-subtitle">{facility.type} | {facility.district?.name}</p>
+            <p className="page-subtitle">{facility.facilityType} | {facility.district?.name}</p>
           </div>
         </div>
         <button className="btn btn-secondary">
@@ -122,17 +144,25 @@ export default function FacilityDetailPage({ params }: Props) {
                 <span className="font-medium">{facility.name}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted">Code</span>
+                <span>{facility.facilityCode}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted">Type</span>
-                <span>{facility.type}</span>
+                <span>{facility.facilityType}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">District</span>
                 <span>{facility.district?.name || 'N/A'}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Region</span>
+                <span>{facility.district?.region?.name || 'N/A'}</span>
+              </div>
               {facility.phone && (
                 <div className="flex justify-between">
                   <span className="text-muted">Phone</span>
-                  <span>{facility.phone}</span>
+                  <a href={`tel:${facility.phone}`} className="link">{facility.phone}</a>
                 </div>
               )}
             </div>
@@ -146,20 +176,34 @@ export default function FacilityDetailPage({ params }: Props) {
               Location
             </h3>
             {facility.latitude && facility.longitude ? (
-              <div style={{ 
-                height: 180, 
-                background: 'var(--accent)', 
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 'var(--space-3)'
-              }}>
-                Map View
-              </div>
+              <>
+                <div style={{ height: 220, borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                  <SingleFacilityMap
+                    latitude={facility.latitude}
+                    longitude={facility.longitude}
+                    name={facility.name}
+                    type={facility.facilityType}
+                    code={facility.facilityCode}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="text-xs text-muted">
+                    {facility.latitude.toFixed(6)}, {facility.longitude.toFixed(6)}
+                  </div>
+                  <a 
+                    href={`https://www.google.com/maps?q=${facility.latitude},${facility.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-sm btn-secondary"
+                  >
+                    <ExternalLink size={12} />
+                    Open in Google Maps
+                  </a>
+                </div>
+              </>
             ) : (
               <div style={{ 
-                height: 180, 
+                height: 220, 
                 background: 'var(--accent)', 
                 borderRadius: 'var(--radius-md)',
                 display: 'flex',
@@ -170,11 +214,6 @@ export default function FacilityDetailPage({ params }: Props) {
                 No coordinates available
               </div>
             )}
-            {facility.latitude && facility.longitude && (
-              <div className="text-xs text-muted">
-                {facility.latitude.toFixed(6)}, {facility.longitude.toFixed(6)}
-              </div>
-            )}
           </div>
         </div>
 
@@ -182,19 +221,23 @@ export default function FacilityDetailPage({ params }: Props) {
           <div className="card">
             <h3 className="card-title mb-4">Services & Capabilities</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-              {['Emergency', 'Obstetrics', 'Pediatrics', 'Surgery', 'Laboratory', 'Radiology'].map((service) => (
-                <span 
-                  key={service}
-                  style={{ 
-                    padding: 'var(--space-2) var(--space-3)',
-                    background: 'var(--accent)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: 'var(--text-sm)'
-                  }}
-                >
-                  {service}
-                </span>
-              ))}
+              {(facility.services && facility.services.length > 0) ? (
+                facility.services.map((service) => (
+                  <span 
+                    key={service}
+                    style={{ 
+                      padding: 'var(--space-2) var(--space-3)',
+                      background: 'var(--accent)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 'var(--text-sm)'
+                    }}
+                  >
+                    {service}
+                  </span>
+                ))
+              ) : (
+                <span className="text-muted">No services listed</span>
+              )}
             </div>
           </div>
         </div>
@@ -202,3 +245,4 @@ export default function FacilityDetailPage({ params }: Props) {
     </>
   );
 }
+
