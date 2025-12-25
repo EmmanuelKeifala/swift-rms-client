@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { readinessService } from '@/lib/api';
+import { useAuthStore } from '@/store';
+import { FacilityReadiness } from '@/types';
 import { 
   BedDouble, 
   Droplets, 
@@ -17,144 +19,351 @@ import {
   Clock,
   Building2,
   Scissors,
-  Package
+  Package,
+  ChevronDown,
+  ChevronUp,
+  X,
+  MapPin
 } from 'lucide-react';
 
-export default function ReadinessPage() {
-  const { data: currentReadiness, isLoading } = useQuery({
-    queryKey: ['readiness', 'current'],
-    queryFn: () => readinessService.getCurrent(),
-  });
+// Helper functions
+const getScoreColor = (score: number) => {
+  if (score >= 80) return 'var(--success)';
+  if (score >= 60) return 'var(--warning)';
+  return 'var(--error)';
+};
 
-  // Calculate overall readiness score based on available data
-  const overallScore = useMemo(() => {
-    if (!currentReadiness) return 0;
-    let score = 0;
-    let factors = 0;
-    
-    // Bed availability (40% weight)
-    if (currentReadiness.bedCapacityTotal > 0) {
-      const bedScore = (currentReadiness.bedCapacityAvailable / currentReadiness.bedCapacityTotal) * 100;
-      score += bedScore * 0.4;
-      factors += 0.4;
-    }
-    
-    // Oxygen status (20% weight)
-    const statusScore = (status: string) => {
-      switch (status) {
-        case 'ADEQUATE': return 100;
-        case 'LOW': return 50;
-        case 'CRITICAL': return 20;
-        default: return 0;
-      }
-    };
-    if (currentReadiness.oxygenStatus) {
-      score += statusScore(currentReadiness.oxygenStatus) * 0.2;
-      factors += 0.2;
-    }
-    
-    // Blood bank status (20% weight)
-    if (currentReadiness.bloodBankStatus) {
-      score += statusScore(currentReadiness.bloodBankStatus) * 0.2;
-      factors += 0.2;
-    }
-    
-    // Staffing (20% weight)
-    if (currentReadiness.staffingStatus) {
-      const status = String(currentReadiness.staffingStatus);
-      const staffScore = status === 'FULLY_STAFFED' ? 100 : 
-                         status === 'ADEQUATE' ? 80 :
-                         status === 'UNDERSTAFFED' ? 50 : 20;
-      score += staffScore * 0.2;
-      factors += 0.2;
-    }
-    
-    return factors > 0 ? Math.round(score / factors) : 0;
-  }, [currentReadiness]);
+const getStatusColor = (status: string) => {
+  switch (status?.toUpperCase()) {
+    case 'ADEQUATE':
+    case 'FULLY_STAFFED':
+    case 'AVAILABLE':
+      return 'var(--success)';
+    case 'LOW':
+    case 'UNDERSTAFFED':
+      return 'var(--warning)';
+    case 'CRITICAL':
+    case 'UNAVAILABLE':
+      return 'var(--error)';
+    default:
+      return 'var(--muted)';
+  }
+};
 
-  // Calculate total blood units
-  const totalBloodUnits = useMemo(() => {
-    if (!currentReadiness) return 0;
-    return (
-      (currentReadiness.bloodUnitsAPositive || 0) +
-      (currentReadiness.bloodUnitsANegative || 0) +
-      (currentReadiness.bloodUnitsBPositive || 0) +
-      (currentReadiness.bloodUnitsBNegative || 0) +
-      (currentReadiness.bloodUnitsOPositive || 0) +
-      (currentReadiness.bloodUnitsONegative || 0) +
-      (currentReadiness.bloodUnitsABPositive || 0) +
-      (currentReadiness.bloodUnitsABNegative || 0)
-    );
-  }, [currentReadiness]);
+const getStatusBg = (status: string) => {
+  switch (status?.toUpperCase()) {
+    case 'ADEQUATE':
+    case 'FULLY_STAFFED':
+    case 'AVAILABLE':
+      return 'rgba(34, 197, 94, 0.1)';
+    case 'LOW':
+    case 'UNDERSTAFFED':
+      return 'rgba(234, 179, 8, 0.1)';
+    case 'CRITICAL':
+    case 'UNAVAILABLE':
+      return 'rgba(239, 68, 68, 0.1)';
+    default:
+      return 'var(--accent)';
+  }
+};
 
-  // Blood units array for display
-  const bloodUnitsArray = useMemo(() => {
-    if (!currentReadiness) return [];
-    return [
-      { type: 'A+', units: currentReadiness.bloodUnitsAPositive || 0 },
-      { type: 'A-', units: currentReadiness.bloodUnitsANegative || 0 },
-      { type: 'B+', units: currentReadiness.bloodUnitsBPositive || 0 },
-      { type: 'B-', units: currentReadiness.bloodUnitsBNegative || 0 },
-      { type: 'O+', units: currentReadiness.bloodUnitsOPositive || 0 },
-      { type: 'O-', units: currentReadiness.bloodUnitsONegative || 0 },
-      { type: 'AB+', units: currentReadiness.bloodUnitsABPositive || 0 },
-      { type: 'AB-', units: currentReadiness.bloodUnitsABNegative || 0 },
-    ];
-  }, [currentReadiness]);
+const StatusBadge = ({ status }: { status: string }) => (
+  <span style={{
+    padding: '4px 12px',
+    borderRadius: 'var(--radius-full)',
+    fontSize: 'var(--text-xs)',
+    fontWeight: 600,
+    color: getStatusColor(status),
+    background: getStatusBg(status),
+    textTransform: 'capitalize'
+  }}>
+    {status?.replace(/_/g, ' ').toLowerCase() || 'N/A'}
+  </span>
+);
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'var(--success)';
-    if (score >= 60) return 'var(--warning)';
-    return 'var(--error)';
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case 'ADEQUATE':
-      case 'FULLY_STAFFED':
-      case 'AVAILABLE':
-        return 'var(--success)';
-      case 'LOW':
-      case 'UNDERSTAFFED':
-        return 'var(--warning)';
-      case 'CRITICAL':
-      case 'UNAVAILABLE':
-        return 'var(--error)';
-      default:
-        return 'var(--muted)';
+const calculateScore = (data: FacilityReadiness) => {
+  let score = 0;
+  let factors = 0;
+  
+  if (data.bedCapacityTotal > 0) {
+    const bedScore = (data.bedCapacityAvailable / data.bedCapacityTotal) * 100;
+    score += bedScore * 0.4;
+    factors += 0.4;
+  }
+  
+  const statusScore = (status: string) => {
+    switch (status) {
+      case 'ADEQUATE': return 100;
+      case 'LOW': return 50;
+      case 'CRITICAL': return 20;
+      default: return 0;
     }
   };
+  
+  if (data.oxygenStatus) {
+    score += statusScore(data.oxygenStatus) * 0.2;
+    factors += 0.2;
+  }
+  
+  if (data.bloodBankStatus) {
+    score += statusScore(data.bloodBankStatus) * 0.2;
+    factors += 0.2;
+  }
+  
+  if (data.staffingStatus) {
+    const status = String(data.staffingStatus);
+    const staffScore = status === 'FULLY_STAFFED' ? 100 : 
+                       status === 'ADEQUATE' ? 80 :
+                       status === 'UNDERSTAFFED' ? 50 : 20;
+    score += staffScore * 0.2;
+    factors += 0.2;
+  }
+  
+  return factors > 0 ? Math.round(score / factors) : 0;
+};
 
-  const getStatusBg = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case 'ADEQUATE':
-      case 'FULLY_STAFFED':
-      case 'AVAILABLE':
-        return 'rgba(34, 197, 94, 0.1)';
-      case 'LOW':
-      case 'UNDERSTAFFED':
-        return 'rgba(234, 179, 8, 0.1)';
-      case 'CRITICAL':
-      case 'UNAVAILABLE':
-        return 'rgba(239, 68, 68, 0.1)';
-      default:
-        return 'var(--accent)';
-    }
-  };
-
-  const StatusBadge = ({ status }: { status: string }) => (
-    <span style={{
-      padding: '4px 12px',
-      borderRadius: 'var(--radius-full)',
-      fontSize: 'var(--text-xs)',
-      fontWeight: 600,
-      color: getStatusColor(status),
-      background: getStatusBg(status),
-      textTransform: 'capitalize'
-    }}>
-      {status?.replace(/_/g, ' ').toLowerCase() || 'N/A'}
-    </span>
+const getTotalBloodUnits = (data: FacilityReadiness) => {
+  return (
+    (data.bloodUnitsAPositive || 0) +
+    (data.bloodUnitsANegative || 0) +
+    (data.bloodUnitsBPositive || 0) +
+    (data.bloodUnitsBNegative || 0) +
+    (data.bloodUnitsOPositive || 0) +
+    (data.bloodUnitsONegative || 0) +
+    (data.bloodUnitsABPositive || 0) +
+    (data.bloodUnitsABNegative || 0)
   );
+};
+
+// Facility Card Component for multi-facility view
+function FacilityReadinessCard({ 
+  data, 
+  isExpanded, 
+  onToggle,
+  onViewDetails 
+}: { 
+  data: FacilityReadiness; 
+  isExpanded: boolean; 
+  onToggle: () => void;
+  onViewDetails: () => void;
+}) {
+  const score = calculateScore(data);
+  const bedOccupancy = data.bedCapacityTotal > 0 
+    ? Math.round(((data.bedCapacityTotal - data.bedCapacityAvailable) / data.bedCapacityTotal) * 100) 
+    : 0;
+  const totalBlood = getTotalBloodUnits(data);
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* Header - Always visible */}
+      <div 
+        onClick={onToggle}
+        style={{ 
+          padding: 'var(--space-4)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: isExpanded ? 'var(--accent)' : 'transparent',
+          transition: 'background 0.2s'
+        }}
+      >
+        <div className="flex items-center gap-4">
+          <div style={{ 
+            width: 50, 
+            height: 50, 
+            borderRadius: '50%',
+            background: `conic-gradient(${getScoreColor(score)} ${score}%, var(--border) 0)`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <div style={{ 
+              width: 40, 
+              height: 40, 
+              background: 'var(--card)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 'var(--text-sm)',
+              fontWeight: 700,
+              color: getScoreColor(score)
+            }}>
+              {score}%
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold">{data.facilityName || 'Unknown Facility'}</div>
+            <div className="text-xs text-muted flex items-center gap-1">
+              <MapPin size={10} />
+              {data.facilityCode || 'No code'}
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          {/* Quick Stats Pills */}
+          <div className="flex items-center gap-2" style={{ display: isExpanded ? 'none' : 'flex' }}>
+            <span style={{ 
+              padding: '4px 10px', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-full)',
+              fontSize: 'var(--text-xs)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}>
+              <BedDouble size={12} />
+              {data.bedCapacityAvailable}/{data.bedCapacityTotal}
+            </span>
+            <StatusBadge status={data.bloodBankStatus} />
+          </div>
+          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </div>
+      </div>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div style={{ padding: 'var(--space-4)', borderTop: '1px solid var(--border)' }}>
+          {/* Stats Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(4, 1fr)', 
+            gap: 'var(--space-3)',
+            marginBottom: 'var(--space-4)'
+          }}>
+            {/* Beds */}
+            <div style={{ 
+              padding: 'var(--space-3)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-md)' 
+            }}>
+              <div className="flex items-center gap-2 mb-2">
+                <BedDouble size={14} style={{ color: 'rgb(59, 130, 246)' }} />
+                <span className="text-xs font-medium">Beds</span>
+              </div>
+              <div className="font-bold">
+                {data.bedCapacityAvailable}
+                <span className="text-muted font-normal">/{data.bedCapacityTotal}</span>
+              </div>
+              <div style={{ 
+                marginTop: 6,
+                height: 4, 
+                background: 'var(--border)', 
+                borderRadius: 'var(--radius-full)',
+                overflow: 'hidden'
+              }}>
+                <div style={{ 
+                  width: `${bedOccupancy}%`,
+                  height: '100%',
+                  background: bedOccupancy > 80 ? 'var(--error)' : bedOccupancy > 60 ? 'var(--warning)' : 'var(--success)'
+                }} />
+              </div>
+            </div>
+
+            {/* Staff */}
+            <div style={{ 
+              padding: 'var(--space-3)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-md)' 
+            }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Users size={14} style={{ color: 'rgb(34, 197, 94)' }} />
+                <span className="text-xs font-medium">Staff</span>
+              </div>
+              <div className="font-bold">{data.doctorsOnDuty}D / {data.nursesOnDuty}N</div>
+              <div className="text-xs mt-1">
+                <StatusBadge status={String(data.staffingStatus)} />
+              </div>
+            </div>
+
+            {/* Blood Bank */}
+            <div style={{ 
+              padding: 'var(--space-3)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-md)' 
+            }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Droplets size={14} style={{ color: 'rgb(239, 68, 68)' }} />
+                <span className="text-xs font-medium">Blood</span>
+              </div>
+              <div className="font-bold">{totalBlood} units</div>
+              <div className="text-xs mt-1">
+                <StatusBadge status={data.bloodBankStatus} />
+              </div>
+            </div>
+
+            {/* Oxygen */}
+            <div style={{ 
+              padding: 'var(--space-3)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-md)' 
+            }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Wind size={14} style={{ color: 'rgb(59, 130, 246)' }} />
+                <span className="text-xs font-medium">Oxygen</span>
+              </div>
+              <div className="font-bold">{data.oxygenCylinders || 0} cyl</div>
+              <div className="text-xs mt-1">
+                <StatusBadge status={data.oxygenStatus} />
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Quick Stats */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 text-sm text-muted">
+              <span className="flex items-center gap-1">
+                <Scissors size={12} />
+                {data.operatingRoomsAvailable || 0} OR
+              </span>
+              <span className="flex items-center gap-1">
+                <Stethoscope size={12} />
+                {data.icuBedsAvailable || 0}/{data.icuBedsTotal || 0} ICU
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {new Date(data.reportDate).toLocaleDateString()}
+              </span>
+            </div>
+            <button 
+              className="btn btn-sm btn-primary"
+              onClick={(e) => { e.stopPropagation(); onViewDetails(); }}
+            >
+              View Details
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Detailed View Modal
+function ReadinessDetailModal({ 
+  data, 
+  onClose 
+}: { 
+  data: FacilityReadiness; 
+  onClose: () => void;
+}) {
+  const score = calculateScore(data);
+  const totalBlood = getTotalBloodUnits(data);
+  const bedOccupancy = data.bedCapacityTotal > 0 
+    ? Math.round(((data.bedCapacityTotal - data.bedCapacityAvailable) / data.bedCapacityTotal) * 100) 
+    : 0;
+
+  const bloodUnitsArray = [
+    { type: 'A+', units: data.bloodUnitsAPositive || 0 },
+    { type: 'A-', units: data.bloodUnitsANegative || 0 },
+    { type: 'B+', units: data.bloodUnitsBPositive || 0 },
+    { type: 'B-', units: data.bloodUnitsBNegative || 0 },
+    { type: 'O+', units: data.bloodUnitsOPositive || 0 },
+    { type: 'O-', units: data.bloodUnitsONegative || 0 },
+    { type: 'AB+', units: data.bloodUnitsABPositive || 0 },
+    { type: 'AB-', units: data.bloodUnitsABNegative || 0 },
+  ];
 
   const getBloodUnitColor = (units: number) => {
     if (units >= 10) return 'var(--success)';
@@ -162,60 +371,309 @@ export default function ReadinessPage() {
     return 'var(--error)';
   };
 
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
-        <div className="spinner" />
-      </div>
-    );
-  }
-
-  if (!currentReadiness) {
-    return (
-      <>
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Facility Readiness</h1>
-            <p className="page-subtitle">Monitor and update facility status</p>
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: 'var(--space-4)'
+      }}
+      onClick={onClose}
+    >
+      <div 
+        className="card"
+        style={{ 
+          width: '100%',
+          maxWidth: 900,
+          maxHeight: '90vh',
+          overflow: 'auto',
+          padding: 0
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ 
+          padding: 'var(--space-4)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          background: 'var(--card)',
+          zIndex: 10
+        }}>
+          <div className="flex items-center gap-4">
+            <div style={{ 
+              width: 60, 
+              height: 60, 
+              borderRadius: '50%',
+              background: `conic-gradient(${getScoreColor(score)} ${score}%, var(--border) 0)`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <div style={{ 
+                width: 48, 
+                height: 48, 
+                background: 'var(--card)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 'var(--text-lg)',
+                fontWeight: 700,
+                color: getScoreColor(score)
+              }}>
+                {score}%
+              </div>
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>{data.facilityName}</h2>
+              <div className="text-sm text-muted flex items-center gap-2">
+                <MapPin size={12} />
+                {data.facilityCode}
+                <span>•</span>
+                <Clock size={12} />
+                Updated {new Date(data.reportDate).toLocaleDateString()}
+              </div>
+            </div>
           </div>
-          <Link href="/readiness/update" className="btn btn-primary">
-            <RefreshCw size={16} />
-            Update Status
-          </Link>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}>
+            <X size={20} />
+          </button>
         </div>
-        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <AlertCircle size={48} style={{ color: 'var(--muted)', margin: '0 auto var(--space-4)' }} />
-          <h3 style={{ marginBottom: 'var(--space-2)' }}>No Readiness Data</h3>
-          <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>
-            No readiness report has been submitted yet for this facility.
-          </p>
-          <Link href="/readiness/update" className="btn btn-primary">
-            Submit First Report
-          </Link>
-        </div>
-      </>
-    );
-  }
 
-  const bedOccupancy = currentReadiness.bedCapacityTotal > 0 
-    ? Math.round(((currentReadiness.bedCapacityTotal - currentReadiness.bedCapacityAvailable) / currentReadiness.bedCapacityTotal) * 100) 
+        <div style={{ padding: 'var(--space-4)' }}>
+          {/* Quick Stats */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(5, 1fr)', 
+            gap: 'var(--space-3)',
+            marginBottom: 'var(--space-5)'
+          }}>
+            {/* Beds */}
+            <div style={{ 
+              padding: 'var(--space-4)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
+            }}>
+              <BedDouble size={24} style={{ color: 'rgb(59, 130, 246)', margin: '0 auto var(--space-2)' }} />
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>
+                {data.bedCapacityAvailable}
+                <span className="text-muted" style={{ fontSize: 'var(--text-sm)', fontWeight: 400 }}>
+                  /{data.bedCapacityTotal}
+                </span>
+              </div>
+              <div className="text-xs text-muted">Beds Available</div>
+              <div style={{ 
+                marginTop: 'var(--space-2)',
+                height: 4, 
+                background: 'var(--border)', 
+                borderRadius: 'var(--radius-full)'
+              }}>
+                <div style={{ 
+                  width: `${bedOccupancy}%`,
+                  height: '100%',
+                  background: bedOccupancy > 80 ? 'var(--error)' : 'var(--success)',
+                  borderRadius: 'var(--radius-full)'
+                }} />
+              </div>
+            </div>
+
+            {/* ICU */}
+            <div style={{ 
+              padding: 'var(--space-4)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
+            }}>
+              <Stethoscope size={24} style={{ color: 'rgb(168, 85, 247)', margin: '0 auto var(--space-2)' }} />
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>
+                {data.icuBedsAvailable || 0}
+                <span className="text-muted" style={{ fontSize: 'var(--text-sm)', fontWeight: 400 }}>
+                  /{data.icuBedsTotal || 0}
+                </span>
+              </div>
+              <div className="text-xs text-muted">ICU Beds</div>
+            </div>
+
+            {/* Staff */}
+            <div style={{ 
+              padding: 'var(--space-4)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
+            }}>
+              <Users size={24} style={{ color: 'rgb(34, 197, 94)', margin: '0 auto var(--space-2)' }} />
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>
+                {data.doctorsOnDuty}D / {data.nursesOnDuty}N
+              </div>
+              <div className="text-xs text-muted mb-1">Staff on Duty</div>
+              <StatusBadge status={String(data.staffingStatus)} />
+            </div>
+
+            {/* Theatre */}
+            <div style={{ 
+              padding: 'var(--space-4)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
+            }}>
+              <Scissors size={24} style={{ color: 'rgb(236, 72, 153)', margin: '0 auto var(--space-2)' }} />
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>
+                {data.operatingRoomsAvailable || 0}
+              </div>
+              <div className="text-xs text-muted mb-1">Operating Rooms</div>
+              {data.theatreStatus && <StatusBadge status={data.theatreStatus} />}
+            </div>
+
+            {/* Oxygen */}
+            <div style={{ 
+              padding: 'var(--space-4)', 
+              background: 'var(--accent)', 
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
+            }}>
+              <Wind size={24} style={{ color: 'rgb(59, 130, 246)', margin: '0 auto var(--space-2)' }} />
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>
+                {data.oxygenCylinders || 0}
+              </div>
+              <div className="text-xs text-muted mb-1">O2 Cylinders</div>
+              <StatusBadge status={data.oxygenStatus} />
+            </div>
+          </div>
+
+          {/* Resource Status */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(2, 1fr)', 
+            gap: 'var(--space-4)',
+            marginBottom: 'var(--space-5)'
+          }}>
+            {/* Blood Bank */}
+            <div style={{ 
+              padding: 'var(--space-4)', 
+              border: '1px solid var(--border)', 
+              borderRadius: 'var(--radius-lg)'
+            }}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Droplets size={18} style={{ color: getStatusColor(data.bloodBankStatus) }} />
+                  <span className="font-semibold">Blood Bank</span>
+                </div>
+                <StatusBadge status={data.bloodBankStatus} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-2)' }}>
+                {bloodUnitsArray.map((blood) => (
+                  <div key={blood.type} style={{ 
+                    textAlign: 'center',
+                    padding: 'var(--space-2)',
+                    background: 'var(--accent)',
+                    borderRadius: 'var(--radius-md)',
+                    border: blood.units === 0 ? '1px solid var(--error)' : 'none'
+                  }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{blood.type}</div>
+                    <div style={{ fontWeight: 700, color: getBloodUnitColor(blood.units) }}>{blood.units}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-sm text-muted mt-3 text-center">
+                <Syringe size={12} style={{ display: 'inline', marginRight: 4 }} />
+                {totalBlood} total units
+              </div>
+            </div>
+
+            {/* Emergency Supplies */}
+            <div style={{ 
+              padding: 'var(--space-4)', 
+              border: '1px solid var(--border)', 
+              borderRadius: 'var(--radius-lg)'
+            }}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Package size={18} style={{ color: getStatusColor(data.emergencySuppliesStatus) }} />
+                  <span className="font-semibold">Emergency Supplies</span>
+                </div>
+                <StatusBadge status={data.emergencySuppliesStatus} />
+              </div>
+              <div style={{ 
+                padding: 'var(--space-4)',
+                background: getStatusBg(data.emergencySuppliesStatus),
+                borderRadius: 'var(--radius-md)',
+                textAlign: 'center'
+              }}>
+                {String(data.emergencySuppliesStatus).toUpperCase() === 'ADEQUATE' ? (
+                  <div className="flex items-center justify-center gap-2" style={{ color: 'var(--success)' }}>
+                    <CheckCircle size={20} />
+                    <span className="font-medium">All supplies adequately stocked</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2" style={{ color: getStatusColor(data.emergencySuppliesStatus) }}>
+                    <AlertCircle size={20} />
+                    <span className="font-medium">Supplies need attention</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Reporter Info */}
+          {data.reportedBy && (
+            <div className="flex items-center justify-between text-sm text-muted" style={{ 
+              padding: 'var(--space-3)',
+              background: 'var(--accent)',
+              borderRadius: 'var(--radius-md)'
+            }}>
+              <span className="flex items-center gap-2">
+                <Users size={14} />
+                Reported by {data.reportedBy.firstName} {data.reportedBy.lastName}
+              </span>
+              <span className="flex items-center gap-2">
+                <Clock size={14} />
+                {new Date(data.createdAt).toLocaleString()}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Single Facility View (for facility staff)
+function SingleFacilityView({ data }: { data: FacilityReadiness }) {
+  const score = calculateScore(data);
+  const totalBlood = getTotalBloodUnits(data);
+  const bedOccupancy = data.bedCapacityTotal > 0 
+    ? Math.round(((data.bedCapacityTotal - data.bedCapacityAvailable) / data.bedCapacityTotal) * 100) 
     : 0;
+
+  const bloodUnitsArray = [
+    { type: 'A+', units: data.bloodUnitsAPositive || 0 },
+    { type: 'A-', units: data.bloodUnitsANegative || 0 },
+    { type: 'B+', units: data.bloodUnitsBPositive || 0 },
+    { type: 'B-', units: data.bloodUnitsBNegative || 0 },
+    { type: 'O+', units: data.bloodUnitsOPositive || 0 },
+    { type: 'O-', units: data.bloodUnitsONegative || 0 },
+    { type: 'AB+', units: data.bloodUnitsABPositive || 0 },
+    { type: 'AB-', units: data.bloodUnitsABNegative || 0 },
+  ];
+
+  const getBloodUnitColor = (units: number) => {
+    if (units >= 10) return 'var(--success)';
+    if (units > 0) return 'var(--warning)';
+    return 'var(--error)';
+  };
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Facility Readiness</h1>
-          <p className="page-subtitle">
-            {currentReadiness.facilityName || 'Current Facility'} - Last updated {new Date(currentReadiness.reportDate).toLocaleDateString()}
-          </p>
-        </div>
-        <Link href="/readiness/update" className="btn btn-primary">
-          <RefreshCw size={16} />
-          Update Status
-        </Link>
-      </div>
-
       {/* Overall Score & Quick Stats */}
       <div style={{ 
         display: 'grid', 
@@ -236,7 +694,7 @@ export default function ReadinessPage() {
             width: 100, 
             height: 100, 
             borderRadius: '50%',
-            background: `conic-gradient(${getScoreColor(overallScore)} ${overallScore}%, var(--border) 0)`,
+            background: `conic-gradient(${getScoreColor(score)} ${score}%, var(--border) 0)`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -252,15 +710,15 @@ export default function ReadinessPage() {
               justifyContent: 'center',
               fontSize: 'var(--text-2xl)',
               fontWeight: 700,
-              color: getScoreColor(overallScore)
+              color: getScoreColor(score)
             }}>
-              {overallScore}%
+              {score}%
             </div>
           </div>
           <div className="text-sm font-medium">Overall Readiness</div>
           <div className="text-xs text-muted flex items-center gap-1 mt-1">
             <Clock size={12} />
-            {new Date(currentReadiness.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {new Date(data.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
 
@@ -281,9 +739,9 @@ export default function ReadinessPage() {
             <span className="text-sm font-medium">Beds</span>
           </div>
           <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, lineHeight: 1.2 }}>
-            {currentReadiness.bedCapacityAvailable}
+            {data.bedCapacityAvailable}
             <span className="text-muted" style={{ fontSize: 'var(--text-lg)', fontWeight: 400 }}>
-              /{currentReadiness.bedCapacityTotal}
+              /{data.bedCapacityTotal}
             </span>
           </div>
           <div className="text-xs text-muted mt-1">Available beds</div>
@@ -298,8 +756,7 @@ export default function ReadinessPage() {
               width: `${bedOccupancy}%`,
               height: '100%',
               background: bedOccupancy > 80 ? 'var(--error)' : bedOccupancy > 60 ? 'var(--warning)' : 'var(--success)',
-              borderRadius: 'var(--radius-full)',
-              transition: 'width 0.3s ease'
+              borderRadius: 'var(--radius-full)'
             }} />
           </div>
           <div className="text-xs text-muted mt-1">{bedOccupancy}% occupied</div>
@@ -322,9 +779,9 @@ export default function ReadinessPage() {
             <span className="text-sm font-medium">ICU</span>
           </div>
           <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, lineHeight: 1.2 }}>
-            {currentReadiness.icuBedsAvailable || 0}
+            {data.icuBedsAvailable || 0}
             <span className="text-muted" style={{ fontSize: 'var(--text-lg)', fontWeight: 400 }}>
-              /{currentReadiness.icuBedsTotal || 0}
+              /{data.icuBedsTotal || 0}
             </span>
           </div>
           <div className="text-xs text-muted mt-1">ICU beds available</div>
@@ -348,16 +805,16 @@ export default function ReadinessPage() {
           </div>
           <div className="flex gap-4">
             <div>
-              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>{currentReadiness.doctorsOnDuty || 0}</div>
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>{data.doctorsOnDuty || 0}</div>
               <div className="text-xs text-muted">Doctors</div>
             </div>
             <div>
-              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>{currentReadiness.nursesOnDuty || 0}</div>
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>{data.nursesOnDuty || 0}</div>
               <div className="text-xs text-muted">Nurses</div>
             </div>
           </div>
           <div style={{ marginTop: 'var(--space-2)' }}>
-            <StatusBadge status={String(currentReadiness.staffingStatus)} />
+            <StatusBadge status={String(data.staffingStatus)} />
           </div>
         </div>
 
@@ -378,12 +835,12 @@ export default function ReadinessPage() {
             <span className="text-sm font-medium">Theatre</span>
           </div>
           <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, lineHeight: 1.2 }}>
-            {currentReadiness.operatingRoomsAvailable || 0}
+            {data.operatingRoomsAvailable || 0}
           </div>
           <div className="text-xs text-muted mt-1">Operating rooms</div>
-          {currentReadiness.theatreStatus && (
+          {data.theatreStatus && (
             <div style={{ marginTop: 'var(--space-2)' }}>
-              <StatusBadge status={currentReadiness.theatreStatus} />
+              <StatusBadge status={data.theatreStatus} />
             </div>
           )}
         </div>
@@ -404,28 +861,28 @@ export default function ReadinessPage() {
                 width: 44, 
                 height: 44, 
                 borderRadius: 'var(--radius-lg)', 
-                background: getStatusBg(currentReadiness.oxygenStatus),
+                background: getStatusBg(data.oxygenStatus),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Wind size={22} style={{ color: getStatusColor(currentReadiness.oxygenStatus) }} />
+                <Wind size={22} style={{ color: getStatusColor(data.oxygenStatus) }} />
               </div>
               <div>
                 <div className="font-semibold">Oxygen Supply</div>
                 <div className="text-xs text-muted">Medical grade O2</div>
               </div>
             </div>
-            <StatusBadge status={currentReadiness.oxygenStatus} />
+            <StatusBadge status={data.oxygenStatus} />
           </div>
-          {currentReadiness.oxygenCylinders > 0 && (
+          {data.oxygenCylinders > 0 && (
             <div className="flex items-center gap-2 text-sm" style={{ 
               padding: 'var(--space-3)', 
               background: 'var(--accent)', 
               borderRadius: 'var(--radius-md)' 
             }}>
               <CheckCircle size={14} style={{ color: 'var(--success)' }} />
-              <span>{currentReadiness.oxygenCylinders} cylinders available</span>
+              <span>{data.oxygenCylinders} cylinders available</span>
             </div>
           )}
         </div>
@@ -438,27 +895,27 @@ export default function ReadinessPage() {
                 width: 44, 
                 height: 44, 
                 borderRadius: 'var(--radius-lg)', 
-                background: getStatusBg(currentReadiness.bloodBankStatus),
+                background: getStatusBg(data.bloodBankStatus),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Droplets size={22} style={{ color: getStatusColor(currentReadiness.bloodBankStatus) }} />
+                <Droplets size={22} style={{ color: getStatusColor(data.bloodBankStatus) }} />
               </div>
               <div>
                 <div className="font-semibold">Blood Bank</div>
                 <div className="text-xs text-muted">All blood types</div>
               </div>
             </div>
-            <StatusBadge status={currentReadiness.bloodBankStatus} />
+            <StatusBadge status={data.bloodBankStatus} />
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ 
             padding: 'var(--space-3)', 
             background: 'var(--accent)', 
             borderRadius: 'var(--radius-md)' 
           }}>
-            <Syringe size={14} style={{ color: getStatusColor(currentReadiness.bloodBankStatus) }} />
-            <span>{totalBloodUnits} total units in stock</span>
+            <Syringe size={14} style={{ color: getStatusColor(data.bloodBankStatus) }} />
+            <span>{totalBlood} total units in stock</span>
           </div>
         </div>
 
@@ -470,33 +927,33 @@ export default function ReadinessPage() {
                 width: 44, 
                 height: 44, 
                 borderRadius: 'var(--radius-lg)', 
-                background: getStatusBg(currentReadiness.emergencySuppliesStatus),
+                background: getStatusBg(data.emergencySuppliesStatus),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Package size={22} style={{ color: getStatusColor(currentReadiness.emergencySuppliesStatus) }} />
+                <Package size={22} style={{ color: getStatusColor(data.emergencySuppliesStatus) }} />
               </div>
               <div>
                 <div className="font-semibold">Emergency Supplies</div>
                 <div className="text-xs text-muted">Critical supplies</div>
               </div>
             </div>
-            <StatusBadge status={currentReadiness.emergencySuppliesStatus} />
+            <StatusBadge status={data.emergencySuppliesStatus} />
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ 
             padding: 'var(--space-3)', 
             background: 'var(--accent)', 
             borderRadius: 'var(--radius-md)' 
           }}>
-            {String(currentReadiness.emergencySuppliesStatus).toUpperCase() === 'ADEQUATE' ? (
+            {String(data.emergencySuppliesStatus).toUpperCase() === 'ADEQUATE' ? (
               <>
                 <CheckCircle size={14} style={{ color: 'var(--success)' }} />
                 <span>All supplies stocked</span>
               </>
             ) : (
               <>
-                <AlertCircle size={14} style={{ color: getStatusColor(currentReadiness.emergencySuppliesStatus) }} />
+                <AlertCircle size={14} style={{ color: getStatusColor(data.emergencySuppliesStatus) }} />
                 <span>Supplies need attention</span>
               </>
             )}
@@ -511,9 +968,7 @@ export default function ReadinessPage() {
             <Droplets size={16} />
             Blood Bank Inventory
           </h3>
-          <div className="text-sm text-muted">
-            {totalBloodUnits} total units
-          </div>
+          <div className="text-sm text-muted">{totalBlood} total units</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 'var(--space-3)' }}>
           {bloodUnitsArray.map((blood) => (
@@ -543,7 +998,7 @@ export default function ReadinessPage() {
             </div>
           ))}
         </div>
-        {totalBloodUnits === 0 && (
+        {totalBlood === 0 && (
           <div style={{ 
             marginTop: 'var(--space-4)',
             padding: 'var(--space-3)',
@@ -572,20 +1027,151 @@ export default function ReadinessPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm">
             <Building2 size={14} className="text-muted" />
-            <span>{currentReadiness.facilityName || 'Facility'}</span>
+            <span>{data.facilityName || 'Facility'}</span>
           </div>
-          {currentReadiness.reportedBy && (
+          {data.reportedBy && (
             <div className="flex items-center gap-2 text-sm text-muted">
               <Users size={14} />
-              <span>Reported by {currentReadiness.reportedBy.firstName} {currentReadiness.reportedBy.lastName}</span>
+              <span>Reported by {data.reportedBy.firstName} {data.reportedBy.lastName}</span>
             </div>
           )}
         </div>
         <div className="flex items-center gap-2 text-sm text-muted">
           <Clock size={14} />
-          <span>Report date: {new Date(currentReadiness.reportDate).toLocaleDateString()}</span>
+          <span>Report date: {new Date(data.reportDate).toLocaleDateString()}</span>
         </div>
       </div>
+    </>
+  );
+}
+
+// Main Page Component
+export default function ReadinessPage() {
+  const user = useAuthStore((state) => state.user);
+  const [expandedFacility, setExpandedFacility] = useState<string | null>(null);
+  const [selectedFacility, setSelectedFacility] = useState<FacilityReadiness | null>(null);
+
+  // Check if user is admin or ambulance dispatch
+  const isMultiFacilityView = user?.userType === 'SYSTEM_ADMIN' || 
+                               user?.userType === 'AMBULANCE_DISPATCH' ||
+                               user?.userType === 'NATIONAL_USER' ||
+                               user?.userType === 'DISTRICT_HEALTH';
+
+  // Fetch data based on view type
+  const { data: allReadiness, isLoading: loadingAll } = useQuery({
+    queryKey: ['readiness', 'all'],
+    queryFn: () => readinessService.getAllCurrent(),
+    enabled: isMultiFacilityView,
+  });
+
+  const { data: currentReadiness, isLoading: loadingSingle } = useQuery({
+    queryKey: ['readiness', 'current'],
+    queryFn: () => readinessService.getCurrent(),
+    enabled: !isMultiFacilityView,
+  });
+
+  const isLoading = isMultiFacilityView ? loadingAll : loadingSingle;
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
+        <div className="spinner" />
+      </div>
+    );
+  }
+
+  // Multi-facility view for admin/dispatch
+  if (isMultiFacilityView) {
+    const facilities = allReadiness || [];
+    
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Facility Readiness Overview</h1>
+            <p className="page-subtitle">
+              Monitoring {facilities.length} facilities across the network
+            </p>
+          </div>
+        </div>
+
+        {facilities.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
+            <AlertCircle size={48} style={{ color: 'var(--muted)', margin: '0 auto var(--space-4)' }} />
+            <h3 style={{ marginBottom: 'var(--space-2)' }}>No Readiness Data</h3>
+            <p className="text-muted">No facilities have submitted readiness reports yet.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {facilities.map((facility) => (
+              <FacilityReadinessCard 
+                key={facility.id}
+                data={facility}
+                isExpanded={expandedFacility === facility.id}
+                onToggle={() => setExpandedFacility(
+                  expandedFacility === facility.id ? null : facility.id
+                )}
+                onViewDetails={() => setSelectedFacility(facility)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Detail Modal */}
+        {selectedFacility && (
+          <ReadinessDetailModal 
+            data={selectedFacility} 
+            onClose={() => setSelectedFacility(null)} 
+          />
+        )}
+      </>
+    );
+  }
+
+  // Single facility view for facility staff
+  if (!currentReadiness) {
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Facility Readiness</h1>
+            <p className="page-subtitle">Monitor and update facility status</p>
+          </div>
+          <Link href="/readiness/update" className="btn btn-primary">
+            <RefreshCw size={16} />
+            Update Status
+          </Link>
+        </div>
+        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
+          <AlertCircle size={48} style={{ color: 'var(--muted)', margin: '0 auto var(--space-4)' }} />
+          <h3 style={{ marginBottom: 'var(--space-2)' }}>No Readiness Data</h3>
+          <p className="text-muted" style={{ marginBottom: 'var(--space-6)' }}>
+            No readiness report has been submitted yet for this facility.
+          </p>
+          <Link href="/readiness/update" className="btn btn-primary">
+            Submit First Report
+          </Link>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Facility Readiness</h1>
+          <p className="page-subtitle">
+            {currentReadiness.facilityName || 'Current Facility'} - Last updated {new Date(currentReadiness.reportDate).toLocaleDateString()}
+          </p>
+        </div>
+        <Link href="/readiness/update" className="btn btn-primary">
+          <RefreshCw size={16} />
+          Update Status
+        </Link>
+      </div>
+
+      <SingleFacilityView data={currentReadiness} />
     </>
   );
 }
