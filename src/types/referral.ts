@@ -33,6 +33,13 @@ export interface Referral {
   acceptedAt?: string;
   arrivedAt?: string;
   completedAt?: string;
+  // ETA and timing fields
+  expectedArrival?: string;
+  actualArrival?: string;
+  // Computed metrics (in minutes)
+  responseTimeMinutes?: number;  // Time from creation to acceptance
+  delayMinutes?: number;         // Difference between expected and actual (positive = late)
+  totalDurationMinutes?: number; // Time from creation to completion
   createdAt: string;
   updatedAt: string;
 }

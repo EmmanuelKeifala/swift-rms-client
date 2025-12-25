@@ -8,6 +8,7 @@ import { referralService } from '@/lib/api';
 import { ReferralStatus } from '@/types';
 import { useAuthStore } from '@/store';
 import { canModifyReferral } from '@/lib/referral-auth';
+import { SearchableSelect } from '@/components/ui';
 import { 
   ArrowLeft, 
   Circle, 
@@ -59,6 +60,9 @@ export default function ReferralDetailPage() {
 
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [showRedirectModal, setShowRedirectModal] = useState(false);
+  const [redirectFacilityId, setRedirectFacilityId] = useState('');
+  const [redirectReason, setRedirectReason] = useState('');
 
   // Get user for permission checks (must be before conditional returns)
   const user = useAuthStore(state => state.user);
@@ -73,8 +77,15 @@ export default function ReferralDetailPage() {
     queryFn: () => referralService.getTimeline(id),
   });
 
+  // Fetch facilities for redirect modal
+  const { data: facilitiesData } = useQuery({
+    queryKey: ['facilities'],
+    queryFn: () => import('@/lib/api').then(m => m.facilityService.list()),
+    enabled: showRedirectModal,
+  });
+
   const updateMutation = useMutation({
-    mutationFn: (data: { status: ReferralStatus; rejectionReason?: string }) =>
+    mutationFn: (data: { status?: ReferralStatus; rejectionReason?: string; newReceivingFacilityId?: string }) =>
       referralService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['referral', id] });
@@ -91,6 +102,14 @@ export default function ReferralDetailPage() {
     }
   };
   const handleMarkArrived = () => updateMutation.mutate({ status: 'ARRIVED' });
+  const handleRedirect = () => {
+    if (redirectFacilityId) {
+      updateMutation.mutate({ newReceivingFacilityId: redirectFacilityId });
+      setShowRedirectModal(false);
+      setRedirectFacilityId('');
+      setRedirectReason('');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -159,7 +178,11 @@ export default function ReferralDetailPage() {
                 <X size={16} />
                 Reject
               </button>
-              <button className="btn btn-secondary">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowRedirectModal(true)}
+                disabled={updateMutation.isPending}
+              >
                 <ExternalLink size={16} />
                 Redirect
               </button>
@@ -259,6 +282,111 @@ export default function ReferralDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Response & Timing Metrics */}
+        <div className="col-6">
+          <div className="card">
+            <h3 className="card-title mb-4">
+              <Clock size={16} />
+              Response & Timing
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+              {/* Response Time */}
+              <div style={{ 
+                padding: 'var(--space-3)', 
+                background: referral.responseTimeMinutes !== undefined && referral.responseTimeMinutes > 30 
+                  ? 'rgba(239, 68, 68, 0.1)' 
+                  : 'var(--accent)', 
+                borderRadius: 'var(--radius-md)' 
+              }}>
+                <div className="text-xs text-muted mb-1">Response Time</div>
+                <div className="font-bold" style={{ 
+                  color: referral.responseTimeMinutes !== undefined && referral.responseTimeMinutes > 30 
+                    ? 'var(--error)' 
+                    : 'var(--foreground)'
+                }}>
+                  {referral.responseTimeMinutes !== undefined 
+                    ? `${referral.responseTimeMinutes} min` 
+                    : 'Pending'}
+                </div>
+              </div>
+
+              {/* ETA Status */}
+              <div style={{ 
+                padding: 'var(--space-3)', 
+                background: 'var(--accent)', 
+                borderRadius: 'var(--radius-md)' 
+              }}>
+                <div className="text-xs text-muted mb-1">Expected Arrival</div>
+                <div className="font-bold">
+                  {referral.expectedArrival 
+                    ? new Date(referral.expectedArrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : 'Not set'}
+                </div>
+              </div>
+
+              {/* Delay */}
+              <div style={{ 
+                padding: 'var(--space-3)', 
+                background: referral.delayMinutes !== undefined && referral.delayMinutes > 0
+                  ? referral.delayMinutes > 15 
+                    ? 'rgba(239, 68, 68, 0.1)' 
+                    : 'rgba(245, 158, 11, 0.1)'
+                  : 'var(--accent)', 
+                borderRadius: 'var(--radius-md)' 
+              }}>
+                <div className="text-xs text-muted mb-1">Delay</div>
+                <div className="font-bold" style={{ 
+                  color: referral.delayMinutes !== undefined && referral.delayMinutes > 0
+                    ? referral.delayMinutes > 15 ? 'var(--error)' : 'var(--warning)'
+                    : referral.delayMinutes !== undefined && referral.delayMinutes <= 0 
+                      ? 'var(--success)' 
+                      : 'var(--foreground)'
+                }}>
+                  {referral.delayMinutes !== undefined 
+                    ? referral.delayMinutes <= 0 
+                      ? 'On time' 
+                      : `+${referral.delayMinutes} min late`
+                    : 'N/A'}
+                </div>
+              </div>
+
+              {/* Total Duration */}
+              <div style={{ 
+                padding: 'var(--space-3)', 
+                background: 'var(--accent)', 
+                borderRadius: 'var(--radius-md)' 
+              }}>
+                <div className="text-xs text-muted mb-1">Total Duration</div>
+                <div className="font-bold">
+                  {referral.totalDurationMinutes !== undefined 
+                    ? referral.totalDurationMinutes >= 60 
+                      ? `${Math.floor(referral.totalDurationMinutes / 60)}h ${referral.totalDurationMinutes % 60}m`
+                      : `${referral.totalDurationMinutes} min`
+                    : 'In progress'}
+                </div>
+              </div>
+            </div>
+
+            {/* Actual Arrival */}
+            {referral.actualArrival && (
+              <div style={{ 
+                marginTop: 'var(--space-3)',
+                padding: 'var(--space-2) var(--space-3)', 
+                background: 'rgba(34, 197, 94, 0.1)', 
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)'
+              }}>
+                <MapPin size={14} style={{ color: 'var(--success)' }} />
+                <span className="text-sm">
+                  Arrived at {new Date(referral.actualArrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -403,6 +531,71 @@ export default function ReferralDetailPage() {
                 disabled={!rejectReason.trim()}
               >
                 Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRedirectModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: 'var(--space-4)'
+        }}>
+          <div className="card" style={{ maxWidth: 500, width: '100%' }}>
+            <h3 className="card-title mb-4">Redirect Referral</h3>
+            <p className="text-sm text-muted mb-4">
+              Select a new receiving facility. The referral will be reset to PENDING status for the new facility to accept.
+            </p>
+            <div className="form-group">
+              <label className="form-label">New Receiving Facility *</label>
+              <SearchableSelect
+                options={facilitiesData?.data
+                  ?.filter(f => f.id !== referral.receivingFacility?.id)
+                  .map(f => ({
+                    value: f.id,
+                    label: f.name,
+                    description: f.facilityType || f.type,
+                  })) || []}
+                value={redirectFacilityId}
+                onChange={setRedirectFacilityId}
+                placeholder="Select a facility..."
+                searchPlaceholder="Search facilities..."
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Reason for Redirect (Optional)</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={redirectReason}
+                onChange={(e) => setRedirectReason(e.target.value)}
+                placeholder="e.g., Closer facility available, specialized care needed..."
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowRedirectModal(false);
+                  setRedirectFacilityId('');
+                  setRedirectReason('');
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={handleRedirect}
+                disabled={!redirectFacilityId || updateMutation.isPending}
+              >
+                {updateMutation.isPending ? 'Redirecting...' : 'Redirect'}
               </button>
             </div>
           </div>
