@@ -201,6 +201,16 @@ export default function ReferralDetailPage() {
         </div>
       )}
 
+      {referral.status === 'REJECTED' && referral.rejectionReason && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md flex gap-3 items-start">
+          <AlertTriangle className="text-red-500 mt-0.5 flex-shrink-0" size={20} />
+          <div>
+            <h3 className="font-bold text-red-900 mb-1">Referral Rejected</h3>
+            <p className="text-red-800">{referral.rejectionReason}</p>
+          </div>
+        </div>
+      )}
+
       <div className="dashboard-grid">
         <div className="col-6">
           <div className="card">

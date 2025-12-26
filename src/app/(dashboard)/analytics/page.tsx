@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   BarChart3, 
   TrendingUp,
@@ -30,31 +30,24 @@ import {
   Cell
 } from 'recharts';
 import { StatCard } from '@/components/ui';
+import { useQuery } from '@tanstack/react-query';
+import { analyticsService } from '@/lib/api/analytics';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
-// Mock Data
-const volumeData = [
-  { date: 'Dec 1', referrals: 45, emergency: 12 },
-  { date: 'Dec 4', referrals: 52, emergency: 15 },
-  { date: 'Dec 7', referrals: 49, emergency: 18 },
-  { date: 'Dec 10', referrals: 62, emergency: 25 },
-  { date: 'Dec 13', referrals: 58, emergency: 20 },
-  { date: 'Dec 16', referrals: 71, emergency: 28 },
-  { date: 'Dec 19', referrals: 65, emergency: 22 },
-];
-
-const priorityData = [
-  { name: 'Critical', value: 18, color: '#DC2626' },   // --priority-critical
-  { name: 'High', value: 35, color: '#F59E0B' },       // --priority-high
-  { name: 'Medium', value: 28, color: '#3B82F6' },     // --priority-medium
-  { name: 'Low', value: 19, color: '#10B981' },        // --priority-low
-];
-
-const outcomeData = [
-  { name: 'Discharged', value: 85, color: '#10B981' },
-  { name: 'Admitted', value: 10, color: '#3B82F6' },
-  { name: 'Referred', value: 3, color: '#F59E0B' },
-  { name: 'Deceased', value: 2, color: '#DC2626' },
-];
+const COLORS = {
+  // Outcomes
+  'COMPLETED': '#10B981', // green
+  'ADMITTED': '#3B82F6',  // blue
+  'REFERRED': '#F59E0B',  // amber
+  'DECEASED': '#DC2626',  // red
+  'DISCHARGED': '#34D399', // emerald
+  
+  // Priorities
+  'CRITICAL': '#DC2626',
+  'HIGH': '#F59E0B',
+  'MEDIUM': '#3B82F6',
+  'LOW': '#10B981',
+};
 
 // Custom Tooltip for Charts
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -83,6 +76,95 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState('30d');
+
+  const dateRange = useMemo(() => {
+    const end = new Date();
+    let start = new Date();
+    
+    switch (period) {
+      case '7d': start = subDays(end, 7); break;
+      case '30d': start = subDays(end, 30); break;
+      case '90d': start = subDays(end, 90); break;
+      case '1y': start = subDays(end, 365); break;
+    }
+    
+    return {
+      dateFrom: format(startOfDay(start), 'yyyy-MM-dd'),
+      dateTo: format(endOfDay(end), 'yyyy-MM-dd'),
+    };
+  }, [period]);
+
+  // Queries
+  const { data: referralData, isLoading: isLoadingReferrals } = useQuery({
+    queryKey: ['analytics', 'referrals', dateRange],
+    queryFn: () => analyticsService.getReferralAnalytics(dateRange),
+  });
+
+  const { data: responseTimeData, isLoading: isLoadingResponseTime } = useQuery({
+    queryKey: ['analytics', 'response-times', dateRange],
+    queryFn: () => analyticsService.getResponseTimes(dateRange),
+  });
+
+  const { data: outcomeData, isLoading: isLoadingOutcomes } = useQuery({
+    queryKey: ['analytics', 'outcomes', dateRange],
+    queryFn: () => analyticsService.getOutcomes(dateRange),
+  });
+
+  const { data: facilityData, isLoading: isLoadingFacilities } = useQuery({
+    queryKey: ['analytics', 'facilities', dateRange],
+    queryFn: () => analyticsService.getFacilityAnalytics(dateRange),
+  });
+
+  const isLoading = isLoadingReferrals || isLoadingResponseTime || isLoadingOutcomes || isLoadingFacilities;
+
+  // Process data for charts
+  const volumeTrendData = useMemo(() => {
+    return referralData?.trend || [];
+  }, [referralData]);
+
+  const priorityChartData = useMemo(() => {
+    if (!referralData?.byPriority) return [];
+    return Object.entries(referralData.byPriority).map(([name, value]) => ({
+      name,
+      value,
+      color: COLORS[name as keyof typeof COLORS] || '#888888'
+    })).sort((a, b) => b.value - a.value);
+  }, [referralData]);
+
+  const outcomeChartData = useMemo(() => {
+    if (!outcomeData?.byOutcome) return [];
+    return Object.entries(outcomeData.byOutcome).map(([name, value]) => ({
+      name,
+      value,
+      color: COLORS[name as keyof typeof COLORS] || '#888888'
+    })).sort((a, b) => b.value - a.value);
+  }, [outcomeData]);
+
+  // Calculate insights
+  const successRate = useMemo(() => {
+    if (!referralData?.summary?.totalReferrals || !outcomeData?.totalCompleted) return 0;
+    // Assuming success is non-deceased outcomes or just completion rate?
+    // Let's use completion rate as success for now
+    return Math.round((referralData.summary.completed / referralData.summary.totalReferrals) * 100);
+  }, [referralData, outcomeData]);
+
+  const highRejectionFacilities = useMemo(() => {
+    return facilityData
+      ?.filter(f => f.rejectionRate > 20) // Facilities with > 20% rejection rate
+      .sort((a, b) => b.rejectionRate - a.rejectionRate)
+      .slice(0, 3) || [];
+  }, [facilityData]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+          <p className="text-sm font-medium text-gray-500">Loading insights...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -125,35 +207,35 @@ export default function AnalyticsPage() {
       <div className="stats-grid mb-6">
         <StatCard
           label="Total Referrals"
-          value="1,247"
+          value={referralData?.summary?.totalReferrals.toLocaleString() || '0'}
           icon={Activity}
-          trend="12.5%"
-          trendType="up"
+          trend={`${referralData?.summary?.totalReferrals ? 'Active' : 'No data'}`}
+          trendType="neutral"
           variant="info"
         />
         <StatCard
           label="Avg Response Time"
-          value="42 min"
+          value={`${Math.round(responseTimeData?.averageMinutes || 0)} min`}
           icon={Clock}
-          trend="8.3%"
-          trendType="down"
-          variant="success"
+          trend="Target: <30m"
+          trendType={responseTimeData?.averageMinutes && responseTimeData.averageMinutes > 30 ? 'down' : 'up'}
+          variant={responseTimeData?.averageMinutes && responseTimeData.averageMinutes > 30 ? 'warning' : 'success'}
         />
         <StatCard
-          label="Success Rate"
-          value="92%"
+          label="Completion Rate"
+          value={`${successRate}%`}
           icon={TrendingUp}
-          trend="3.2%"
+          trend="Success"
           trendType="up"
           variant="success"
         />
         <StatCard
-          label="Mortality Rate"
-          value="1.2%"
+          label="Rejection Rate"
+          value={`${Math.round(((referralData?.summary?.rejected || 0) / (referralData?.summary?.totalReferrals || 1)) * 100)}%`}
           icon={AlertTriangle}
-          trend="0.5%"
+          trend={`${referralData?.summary?.rejected || 0} rejected`}
           trendType="down"
-          variant="warning"
+          variant={((referralData?.summary?.rejected || 0) / (referralData?.summary?.totalReferrals || 1)) > 0.1 ? 'warning' : 'success'}
         />
       </div>
 
@@ -166,15 +248,11 @@ export default function AnalyticsPage() {
             </div>
             <div style={{ height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={volumeData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <AreaChart data={volumeTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
                       <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorEmer" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#DC2626" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#DC2626" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -184,6 +262,7 @@ export default function AnalyticsPage() {
                     tickLine={false} 
                     tick={{ fontSize: 12, fill: '#6B7280' }} 
                     dy={10}
+                    tickFormatter={(value) => format(new Date(value), 'MMM d')}
                   />
                   <YAxis 
                     axisLine={false} 
@@ -193,20 +272,11 @@ export default function AnalyticsPage() {
                   <Tooltip content={<CustomTooltip />} />
                   <Area 
                     type="monotone" 
-                    dataKey="referrals" 
+                    dataKey="count" 
                     name="Total Referrals"
                     stroke="#2563EB" 
                     fillOpacity={1} 
                     fill="url(#colorTotal)" 
-                    strokeWidth={2}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="emergency" 
-                    name="Emergency"
-                    stroke="#DC2626" 
-                    fillOpacity={1} 
-                    fill="url(#colorEmer)" 
                     strokeWidth={2}
                   />
                 </AreaChart>
@@ -222,39 +292,49 @@ export default function AnalyticsPage() {
               <h3 className="card-title">Referrals by Priority</h3>
             </div>
             <div style={{ height: 320 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={priorityData} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
-                  <XAxis type="number" hide />
-                  <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
-                  />
-                  <Tooltip 
-                    cursor={{ fill: 'transparent' }}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-white border rounded-lg p-2 shadow-md text-xs">
-                            <span style={{ color: payload[0].payload.color, fontWeight: 600 }}>
-                              {payload[0].value}%
-                            </span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32}>
-                    {priorityData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              {priorityChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={priorityChartData} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: '#6B7280' }}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: 'transparent' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const total = priorityChartData.reduce((acc, curr) => acc + curr.value, 0);
+                          const val = Number(payload[0].value);
+                          const percentage = Math.round((val / total) * 100);
+                          
+                          return (
+                            <div className="bg-white border rounded-lg p-2 shadow-md text-xs">
+                              <span style={{ color: payload[0].payload.color, fontWeight: 600 }}>
+                                {percentage}% ({val})
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32}>
+                      {priorityChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted text-sm">
+                  No data available
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -266,48 +346,58 @@ export default function AnalyticsPage() {
               <h3 className="card-title">Outcomes</h3>
             </div>
             <div style={{ height: 250, position: 'relative' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={outcomeData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {outcomeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ 
-                position: 'absolute', 
-                top: '50%', 
-                left: '50%', 
-                transform: 'translate(-50%, -50%)',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--foreground)' }}>92%</div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Success</div>
-              </div>
+              {outcomeChartData.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={outcomeChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {outcomeChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ 
+                    position: 'absolute', 
+                    top: '50%', 
+                    left: '50%', 
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--foreground)' }}>
+                      {outcomeData?.totalCompleted || 0}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Total</div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted text-sm">
+                  No outcome data
+                </div>
+              )}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              {outcomeData.map((item) => (
+              {outcomeChartData.slice(0, 4).map((item) => (
                 <div key={item.name} className="flex items-center gap-2 text-sm">
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
-                  <span className="text-muted">{item.name}</span>
-                  <span className="font-medium ml-auto">{item.value}%</span>
+                  <span className="text-muted truncate">{item.name}</span>
+                  <span className="font-medium ml-auto">{item.value}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Alert Cards */}
+        {/* Alert Cards - Dynamic Insights */}
         <div className="col-8">
           <div className="card h-full">
             <div className="card-header">
@@ -316,30 +406,64 @@ export default function AnalyticsPage() {
                 Critical Insights
               </h3>
             </div>
-            <div className="flex gap-4 p-2">
-              <div className="flex-1 p-4 rounded-lg border border-yellow-200 bg-yellow-50" style={{ background: 'var(--warning-light)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
-                <div className="flex gap-3">
-                  <AlertTriangle className="text-yellow-600 shrink-0" size={20} style={{ color: 'var(--warning)' }} />
-                  <div>
-                    <h4 className="font-semibold text-yellow-900 mb-1" style={{ color: '#92400E' }}>High Rejection Rate detected</h4>
-                    <p className="text-sm text-yellow-700" style={{ color: '#B45309' }}>
-                      Bo Government Hospital has a 34% rejection rate this week. Consider capacity review.
-                    </p>
+            <div className="flex flex-col gap-4 p-2">
+              {/* High Rejection Facilities Insight */}
+              {highRejectionFacilities.length > 0 ? (
+                <div className="flex-1 p-4 rounded-lg border border-yellow-200 bg-yellow-50" style={{ background: 'var(--warning-light)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
+                  <div className="flex gap-3">
+                    <AlertTriangle className="text-yellow-600 shrink-0" size={20} style={{ color: 'var(--warning)' }} />
+                    <div>
+                      <h4 className="font-semibold text-yellow-900 mb-1" style={{ color: '#92400E' }}>High Rejection Rates Detected</h4>
+                      <p className="text-sm text-yellow-700" style={{ color: '#B45309' }}>
+                        {highRejectionFacilities[0].facilityName} has a {Math.round(highRejectionFacilities[0].rejectionRate)}% rejection rate.
+                        {highRejectionFacilities[0].topRejectionReason && ` Top reason: ${highRejectionFacilities[0].topRejectionReason}`}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex-1 p-4 rounded-lg border border-green-200 bg-green-50">
+                  <div className="flex gap-3">
+                     <TrendingUp className="text-green-600 shrink-0" size={20} />
+                     <div>
+                       <h4 className="font-semibold text-green-900 mb-1">Healthy Rejection Rates</h4>
+                       <p className="text-sm text-green-700">All facilities are maintaining rejection rates below 20%.</p>
+                     </div>
+                  </div>
+                </div>
+              )}
               
-              <div className="flex-1 p-4 rounded-lg border border-blue-200 bg-blue-50" style={{ background: 'var(--info-light)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
-                <div className="flex gap-3">
-                  <TrendingUp className="text-blue-600 shrink-0" size={20} style={{ color: 'var(--info)' }} />
-                  <div>
-                    <h4 className="font-semibold text-blue-900 mb-1" style={{ color: '#1E40AF' }}>Obstetric referrals trending up</h4>
-                    <p className="text-sm text-blue-700" style={{ color: '#1D4ED8' }}>
-                      23% increase in maternal referrals. Ensure adequate EmONC capacity.
-                    </p>
+              {/* Response Time Insight */}
+              {responseTimeData?.averageMinutes && responseTimeData.averageMinutes > 45 && (
+                <div className="flex-1 p-4 rounded-lg border border-red-200 bg-red-50">
+                  <div className="flex gap-3">
+                    <Clock className="text-red-600 shrink-0" size={20} />
+                    <div>
+                      <h4 className="font-semibold text-red-900 mb-1">Slow Response Times</h4>
+                      <p className="text-sm text-red-700">
+                        Average response time is {Math.round(responseTimeData.averageMinutes)} mins, exceeding the 30 min target.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Volume Insight - simple based on trend */}
+              {volumeTrendData.length >= 2 && 
+               volumeTrendData[volumeTrendData.length-1].count > volumeTrendData[volumeTrendData.length-2].count * 1.2 && (
+                <div className="flex-1 p-4 rounded-lg border border-blue-200 bg-blue-50">
+                   <div className="flex gap-3">
+                     <Activity className="text-blue-600 shrink-0" size={20} />
+                     <div>
+                       <h4 className="font-semibold text-blue-900 mb-1">Surge in Referrals</h4>
+                       <p className="text-sm text-blue-700">
+                         Recent volume shows a 20% increase compared to previous day.
+                       </p>
+                     </div>
+                   </div>
+                 </div>
+               )
+              }
             </div>
           </div>
         </div>

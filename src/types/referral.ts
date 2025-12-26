@@ -28,6 +28,8 @@ export interface Referral {
   bloodDonorAccompanying: boolean;
   relativeAccompanying: boolean;
   nemsRequest?: NEMSRequestSummary;
+  rejectionReason?: string;
+  redirectReason?: string;
   createdBy: UserSummary;
   acceptedBy?: UserSummary;
   acceptedAt?: string;

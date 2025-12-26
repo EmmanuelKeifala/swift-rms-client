@@ -1,64 +1,81 @@
 // Analytics types
 
-export interface ReferralAnalytics {
+export interface ReferralSummaryStats {
   totalReferrals: number;
-  byStatus: Record<string, number>;
-  byPriority: Record<string, number>;
-  byType: Record<string, number>;
-  byOutcome: Record<string, number>;
-  averageResponseTime: number;
-  successRate: number;
-  mortalityRate: number;
-  trendsOverTime: TrendPoint[];
+  completed: number;
+  pending: number;
+  rejected: number;
+  cancelled: number;
+  averageResponseTimeMinutes?: number;
+  averageCompletionTimeHours?: number;
 }
 
 export interface TrendPoint {
   date: string;
   count: number;
-  label?: string;
+}
+
+export interface ReferralAnalytics {
+  summary: ReferralSummaryStats;
+  byPriority: Record<string, number>;
+  byColourCode: Record<string, number>;
+  byOutcome: Record<string, number>;
+  trend?: TrendPoint[];
 }
 
 export interface FacilityAnalytics {
   facilityId: string;
   facilityName: string;
-  totalReferrals: number;
-  incomingReferrals: number;
-  outgoingReferrals: number;
+  totalReferralsReceived: number;
+  totalReferralsSent: number;
   acceptanceRate: number;
-  averageResponseTime: number;
-  outcomes: Record<string, number>;
+  averageResponseTimeMinutes: number;
+  rejectionRate: number;
+  topRejectionReason?: string;
+}
+
+export interface FacilityResponseTime {
+  facilityId: string;
+  facilityName: string;
+  averageMinutes: number;
+  totalReferrals: number;
 }
 
 export interface ResponseTimeAnalytics {
-  overall: number;
+  averageMinutes: number;
+  medianMinutes: number;
   byPriority: Record<string, number>;
-  byFacility: Record<string, number>;
-  trend: TrendPoint[];
+  byFacility: FacilityResponseTime[];
+  trend?: TrendPoint[];
+}
+
+export interface FacilityOutcome {
+  facilityId: string;
+  facilityName: string;
+  outcomes: Record<string, number>;
 }
 
 export interface OutcomeAnalytics {
-  total: number;
+  totalCompleted: number;
   byOutcome: Record<string, number>;
-  byFacility: Record<string, Record<string, number>>;
-  trend: TrendPoint[];
+  byFacility: FacilityOutcome[];
+  trend?: TrendPoint[];
 }
 
-export interface RCPerformance {
+export interface RCPerformanceEntry {
   userId: string;
-  userName: string;
+  name: string;
+  facilityName: string;
   referralsCoordinated: number;
-  averageResponseTime: number;
-  bedReportCompliance: number;
-  rating: number;
+  averageResponseTimeMinutes: number;
+  feedbackGiven: number;
+  feedbackRate: number;
+  bedReportsSubmitted: number;
+  bedReportComplianceRate: number;
 }
 
 export interface RCPerformanceResponse {
-  coordinators: RCPerformance[];
-  averagePerformance: {
-    referralsCoordinated: number;
-    averageResponseTime: number;
-    bedReportCompliance: number;
-  };
+  coordinators: RCPerformanceEntry[];
 }
 
 export interface HeatmapData {
