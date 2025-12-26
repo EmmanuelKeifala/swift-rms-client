@@ -77,17 +77,31 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     }, 5000);
   }, []);
 
-  // Show prompt when authenticated and not yet registered
+  // Show prompt when authenticated and not yet registered (only once)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    const permission = 'Notification' in window ? Notification.permission : 'not supported';
+    const hasRespondedToPrompt = localStorage.getItem('notification-prompt-responded') === 'true';
     
     console.log('[Push] Checking notification state:', {
       isAuthenticated,
       hasRegistered: hasRegistered.current,
-      permission: 'Notification' in window ? Notification.permission : 'not supported'
+      permission,
+      hasRespondedToPrompt
     });
     
-    if (isAuthenticated && !hasRegistered.current && 'Notification' in window) {
+    // Don't show prompt if:
+    // - User already granted/denied permission
+    // - User previously dismissed the prompt
+    // - Already registered in this session
+    const shouldShowPrompt = isAuthenticated && 
+      !hasRegistered.current && 
+      'Notification' in window && 
+      permission === 'default' && 
+      !hasRespondedToPrompt;
+    
+    if (shouldShowPrompt) {
       setShowPrompt(true);
       console.log('[Push] Showing notification prompt');
     }
@@ -141,6 +155,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
 
       console.log('[Push] Device registered successfully');
       hasRegistered.current = true;
+      localStorage.setItem('notification-prompt-responded', 'true');
       setShowPrompt(false);
       setIsRegistering(false);
       
@@ -221,10 +236,13 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
                   {isRegistering ? 'Enabling...' : 'Enable'}
                 </button>
                 <button
-                  onClick={() => setShowPrompt(false)}
+                  onClick={() => {
+                    localStorage.setItem('notification-prompt-responded', 'true');
+                    setShowPrompt(false);
+                  }}
                   className="btn btn-secondary btn-sm"
                 >
-                  Later
+                  Not Now
                 </button>
               </div>
             </div>
