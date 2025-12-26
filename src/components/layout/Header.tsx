@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useUIStore } from '@/store';
 import { authService } from '@/lib/api';
+import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { 
   Menu, 
   Building2, 
-  Bell, 
   User, 
   Settings, 
   LogOut,
@@ -74,10 +74,7 @@ export function Header() {
       </div>
 
       <div className="header-right">
-        <button className="notification-btn" aria-label="Notifications">
-          <Bell size={18} />
-          <span className="notification-badge">3</span>
-        </button>
+        <NotificationDropdown />
 
         <div className="user-dropdown" ref={dropdownRef}>
           <button 
