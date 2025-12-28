@@ -21,7 +21,7 @@ interface NotificationPayload {
 }
 
 export function PushNotificationProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const hasRegistered = useRef(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -77,15 +77,17 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     }, 5000);
   }, []);
 
-  // Show prompt when authenticated and not yet registered (only once)
+  // Show prompt when authenticated and not yet registered (only once per user)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !user?.id) return;
     
     const permission = 'Notification' in window ? Notification.permission : 'not supported';
-    const hasRespondedToPrompt = localStorage.getItem('notification-prompt-responded') === 'true';
+    const promptKey = `notification-prompt-responded-${user.id}`;
+    const hasRespondedToPrompt = localStorage.getItem(promptKey) === 'true';
     
     console.log('[Push] Checking notification state:', {
       isAuthenticated,
+      userId: user.id,
       hasRegistered: hasRegistered.current,
       permission,
       hasRespondedToPrompt
@@ -105,7 +107,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       setShowPrompt(true);
       console.log('[Push] Showing notification prompt');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.id]);
 
   // Register for push notifications (called from user action)
   const enableNotifications = useCallback(async () => {
@@ -155,7 +157,9 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
 
       console.log('[Push] Device registered successfully');
       hasRegistered.current = true;
-      localStorage.setItem('notification-prompt-responded', 'true');
+      if (user?.id) {
+        localStorage.setItem(`notification-prompt-responded-${user.id}`, 'true');
+      }
       setShowPrompt(false);
       setIsRegistering(false);
       
@@ -237,7 +241,9 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
                 </button>
                 <button
                   onClick={() => {
-                    localStorage.setItem('notification-prompt-responded', 'true');
+                    if (user?.id) {
+                      localStorage.setItem(`notification-prompt-responded-${user.id}`, 'true');
+                    }
                     setShowPrompt(false);
                   }}
                   className="btn btn-secondary btn-sm"
