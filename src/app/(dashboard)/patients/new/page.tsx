@@ -15,21 +15,21 @@ import {
   Save
 } from 'lucide-react';
 
-// Phone is 9 digits after +232 prefix
-const optionalPhoneRegex = /^$|^[0-9]{9}$/;
+// Phone is 8 digits after +232 prefix
+const optionalPhoneRegex = /^$|^[0-9]{8}$/;
 
 const patientSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER'], { message: 'Gender is required' }),
   dateOfBirth: z.string().optional(),
-  phone: z.string().regex(optionalPhoneRegex, 'Phone must be 9 digits (e.g., 76000002)').optional(),
+  phone: z.string().regex(optionalPhoneRegex, 'Phone must be 8 digits (e.g., 76000002)').optional(),
   address: z.string().optional(),
   bloodType: z.string().optional(),
   allergies: z.string().optional(),
   chronicConditions: z.string().optional(),
   nextOfKinName: z.string().optional(),
-  nextOfKinPhone: z.string().regex(optionalPhoneRegex, 'Phone must be 9 digits').optional(),
+  nextOfKinPhone: z.string().regex(optionalPhoneRegex, 'Phone must be 8 digits').optional(),
   nextOfKinRelationship: z.string().optional(),
 });
 
@@ -133,12 +133,12 @@ export default function NewPatientPage() {
                     type="tel" 
                     className={`form-input ${errors.phone ? 'error' : ''}`}
                     placeholder="76000002"
-                    maxLength={9}
+                    maxLength={8}
                     {...register('phone')}
                   />
                 </div>
                 {errors.phone && <span className="form-error">{errors.phone.message}</span>}
-                <span className="form-hint">9 digits (e.g., 76000002)</span>
+                <span className="form-hint">8 digits (e.g., 76000002)</span>
               </div>
 
               <div className="form-group">
@@ -220,7 +220,7 @@ export default function NewPatientPage() {
                     type="tel" 
                     className={`form-input ${errors.nextOfKinPhone ? 'error' : ''}`}
                     placeholder="76000002"
-                    maxLength={9}
+                    maxLength={8}
                     {...register('nextOfKinPhone')}
                   />
                 </div>

@@ -38,7 +38,7 @@ import {
 const userSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  phone: z.string().regex(/^\d{9}$/, 'Phone must be exactly 9 digits'),
+  phone: z.string().regex(/^\d{8}$/, 'Phone must be exactly 8 digits'),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   userType: z.string().min(1, 'Role is required'),
@@ -46,6 +46,7 @@ const userSchema = z.object({
 });
 
 type UserFormData = z.infer<typeof userSchema>;
+
 
 interface User {
   id: string;
@@ -465,12 +466,12 @@ export default function AdminUsersPage() {
                       type="tel" 
                       className={`form-input ${errors.phone ? 'error' : ''}`} 
                       placeholder="76000002" 
-                      maxLength={9} 
+                      maxLength={8} 
                       {...register('phone')}
                     />
                   </div>
                   {errors.phone && <span className="form-error">{errors.phone.message}</span>}
-                  <span className="form-hint">9 digits (e.g., 76000002)</span>
+                  <span className="form-hint">8 digits (e.g., 76000002)</span>
                 </div>
 
                 <div className="form-group">

@@ -1,12 +1,11 @@
 import { z } from 'zod';
 
-// Sierra Leone phone number format: +23276000002 (12 characters)
+// Sierra Leone phone number format: +23279648205 (12 characters)
 // Country code: +232
-// Network prefix: 2 digits (e.g., 76, 77, 78, 79, 30, 33, etc.)
-// Subscriber number: 6 digits
+// Subscriber number: 8 digits
 
-const PHONE_REGEX = /^\+232[0-9]{9}$/;
-const PHONE_LENGTH = 12; // +232 (4) + 9 digits
+const PHONE_REGEX = /^\+232[0-9]{8}$/;
+const PHONE_LENGTH = 12; // +232 (4) + 8 digits
 
 export const phoneSchema = z
   .string()
@@ -53,5 +52,5 @@ export function isValidPhone(phone: string): boolean {
   return PHONE_REGEX.test(phone);
 }
 
-export const PHONE_PLACEHOLDER = '+23276000000';
-export const PHONE_HINT = 'Format: +232XXXXXXXXX (12 digits)';
+export const PHONE_PLACEHOLDER = '+23279000000';
+export const PHONE_HINT = 'Format: +232XXXXXXXX (12 digits)';
