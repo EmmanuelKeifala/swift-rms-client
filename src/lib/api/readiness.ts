@@ -3,6 +3,9 @@ import {
   FacilityReadiness,
   CreateReadinessRequest,
   BedMonitoring,
+  ReadinessReminder,
+  CreateReminderRequest,
+  UpdateReminderRequest,
   ApiResponse,
   PaginationMeta,
 } from '@/types';
@@ -54,4 +57,27 @@ export const readinessService = {
     const response = await apiClient.get<ApiResponse<BedMonitoring>>('/facility-readiness/bed-monitoring');
     return response.data.data!;
   },
+
+  // Readiness Reminders (Journey 4)
+  listReminders: async (facilityId?: string): Promise<ReadinessReminder[]> => {
+    const response = await apiClient.get<ApiResponse<ReadinessReminder[]>>('/facility-readiness/reminders', {
+      params: facilityId ? { facilityId } : undefined
+    });
+    return response.data.data || [];
+  },
+
+  createReminder: async (data: CreateReminderRequest): Promise<ReadinessReminder> => {
+    const response = await apiClient.post<ApiResponse<ReadinessReminder>>('/facility-readiness/reminders', data);
+    return response.data.data!;
+  },
+
+  updateReminder: async (id: string, data: UpdateReminderRequest): Promise<ReadinessReminder> => {
+    const response = await apiClient.patch<ApiResponse<ReadinessReminder>>(`/facility-readiness/reminders/${id}`, data);
+    return response.data.data!;
+  },
+
+  deleteReminder: async (id: string): Promise<void> => {
+    await apiClient.delete(`/facility-readiness/reminders/${id}`);
+  },
 };
+

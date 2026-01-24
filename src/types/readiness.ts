@@ -125,3 +125,35 @@ export interface FacilityBedStatus {
   occupancyRate: number;
   lastUpdated: string;
 }
+
+// Readiness Reminder types (Journey 4)
+export interface ReadinessReminder {
+  id: string;
+  facilityId: string;
+  facilityName?: string;
+  reminderType: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  time: string; // HH:mm format
+  dayOfWeek?: number; // 0-6 for weekly
+  dayOfMonth?: number; // 1-31 for monthly
+  isActive: boolean;
+  notifyVia: ('email' | 'sms' | 'push')[];
+  recipients: string[]; // User IDs
+  lastSentAt?: string;
+  createdAt: string;
+}
+
+export interface CreateReminderRequest {
+  facilityId: string;
+  reminderType: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  time: string;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  notifyVia: ('email' | 'sms' | 'push')[];
+  recipientUserIds?: string[];
+}
+
+export interface UpdateReminderRequest {
+  isActive?: boolean;
+  time?: string;
+  notifyVia?: ('email' | 'sms' | 'push')[];
+}

@@ -11,3 +11,5 @@ export * from './referral';
 export * from './readiness';
 export * from './nems';
 export * from './analytics';
+export * from './patient-report';
+

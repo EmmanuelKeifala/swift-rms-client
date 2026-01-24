@@ -21,7 +21,9 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
-  LucideIcon
+  LucideIcon,
+  Stethoscope,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface NavItem {
@@ -51,6 +53,7 @@ const navSections: NavSection[] = [
     items: [
       { label: 'Readiness', href: '/readiness', icon: BedDouble, permission: 'READINESS_VIEW' },
       { label: 'Counter-Referrals', href: '/counter-referrals', icon: RefreshCw, permission: 'COUNTER_REFERRALS' },
+      { label: 'Clinician Workflow', href: '/clinician-workflow', icon: Stethoscope, permission: 'CLINICIAN_WORKFLOW' },
       { label: 'Triage', href: '/triage', icon: AlertTriangle, permission: 'TRIAGE' },
     ],
   },
@@ -66,6 +69,7 @@ const navSections: NavSection[] = [
     items: [
       { label: 'Dashboard', href: '/analytics', icon: BarChart3, permission: 'ANALYTICS' },
       { label: 'Reports', href: '/reports', icon: FileText, permission: 'REPORTS' },
+      { label: 'RC Tracker', href: '/rc-tracker', icon: ClipboardCheck, permission: 'RC_TRACKER' },
     ],
   },
   {

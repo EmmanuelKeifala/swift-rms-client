@@ -126,3 +126,29 @@ export interface CallCentreDashboard {
   todaysCalls: number;
   todaysMissions: number;
 }
+
+// Vitals Log Entry for ambulance crew (Journey 2)
+export interface VitalsLogEntry {
+  timestamp: string;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  heartRate?: number;
+  respiratoryRate?: number;
+  oxygenSaturation?: number;
+  temperature?: number;
+  consciousnessLevel?: 'ALERT' | 'VERBAL' | 'PAIN' | 'UNRESPONSIVE';
+  interventions?: string[];
+  notes?: string;
+}
+
+export interface LogVitalsRequest {
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  heartRate?: number;
+  respiratoryRate?: number;
+  oxygenSaturation?: number;
+  temperature?: number;
+  consciousnessLevel?: 'ALERT' | 'VERBAL' | 'PAIN' | 'UNRESPONSIVE';
+  interventions?: string[];
+  notes?: string;
+}

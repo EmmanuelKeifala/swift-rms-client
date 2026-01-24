@@ -36,6 +36,7 @@ export type ReferralStatus =
   | 'ACCEPTED'
   | 'IN_TRANSIT'
   | 'ARRIVED'
+  | 'CLINICIAN_REVIEWED'
   | 'COMPLETED'
   | 'CANCELLED'
   | 'REJECTED';
@@ -72,6 +73,9 @@ export type Outcome =
   | 'REFERRED_FURTHER'
   | 'DECEASED'
   | 'LEFT_AGAINST_ADVICE';
+
+// Arrival condition after clinician review (Journey 3)
+export type ArrivalCondition = 'IMPROVED' | 'SAME' | 'DETERIORATED';
 
 export type ReadinessLevel = 'CRITICAL' | 'LOW' | 'ADEQUATE';
 

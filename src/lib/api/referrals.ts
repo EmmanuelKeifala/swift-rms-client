@@ -7,6 +7,7 @@ import {
   ReferralListQuery,
   TimelineEntry,
   AddNoteRequest,
+  ClinicianReviewRequest,
   ApiResponse,
   PaginationMeta,
 } from '@/types';
@@ -87,5 +88,11 @@ export const referralService = {
       outcome: outcome as 'DISCHARGED' | 'ADMITTED' | 'REFERRED_FURTHER' | 'DECEASED' | 'LEFT_AGAINST_ADVICE',
       outcomeNotes: notes 
     });
+  },
+
+  // Clinician review for Journey 3
+  clinicianReview: async (id: string, data: ClinicianReviewRequest): Promise<Referral> => {
+    const response = await apiClient.post<ApiResponse<Referral>>(`/referrals/${id}/clinician-review`, data);
+    return response.data.data!;
   },
 };

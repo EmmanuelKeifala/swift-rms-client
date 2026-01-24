@@ -40,6 +40,9 @@ export const PERMISSIONS = {
   // Triage
   TRIAGE: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'SYSTEM_ADMIN'] as UserType[],
   
+  // Clinician Workflow - Hospital and specialist use
+  CLINICIAN_WORKFLOW: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'SYSTEM_ADMIN'] as UserType[],
+  
   // Call Centre - Emergency coordinators only
   CALL_CENTRE: ['AMBULANCE_DISPATCH', 'SYSTEM_ADMIN'] as UserType[],
   
@@ -51,6 +54,9 @@ export const PERMISSIONS = {
   
   // Reports - District and above
   REPORTS: ['DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
+  
+  // RC Tracker - Referral Coordinators and district level
+  RC_TRACKER: ['REFERRAL_COORDINATOR', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
   
   // Admin - System admin only
   ADMIN_USERS: ['SYSTEM_ADMIN'] as UserType[],
@@ -107,6 +113,8 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/ambulances': 'AMBULANCES',
   '/analytics': 'ANALYTICS',
   '/reports': 'REPORTS',
+  '/rc-tracker': 'RC_TRACKER',
+  '/clinician-workflow': 'CLINICIAN_WORKFLOW',
   '/admin/users': 'ADMIN_USERS',
   '/admin/facilities': 'ADMIN_FACILITIES',
   '/admin/settings': 'ADMIN_SETTINGS',

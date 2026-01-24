@@ -9,6 +9,7 @@ import {
   CreateCallRequest,
   CallCentreDashboard,
   Location,
+  LogVitalsRequest,
   ApiResponse,
   PaginationMeta,
 } from '@/types';
@@ -50,6 +51,12 @@ export const nemsService = {
 
   getAmbulanceLocation: async (id: string): Promise<Location> => {
     const response = await apiClient.get<ApiResponse<Location>>(`/nems/ambulances/${id}/location`);
+    return response.data.data!;
+  },
+
+  // Vitals logging for ambulance crew (Journey 2)
+  logVitals: async (requestId: string, data: LogVitalsRequest): Promise<NEMSRequest> => {
+    const response = await apiClient.post<ApiResponse<NEMSRequest>>(`/nems/requests/${requestId}/vitals`, data);
     return response.data.data!;
   },
 

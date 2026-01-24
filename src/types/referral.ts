@@ -1,6 +1,6 @@
 // Referral types
 
-import { ReferralStatus, Priority, ReferralType, Outcome } from './common';
+import { ReferralStatus, Priority, ReferralType, Outcome, ArrivalCondition } from './common';
 import { PatientSummary } from './patient';
 import { FacilitySummary } from './facility';
 
@@ -42,6 +42,20 @@ export interface Referral {
   responseTimeMinutes?: number;  // Time from creation to acceptance
   delayMinutes?: number;         // Difference between expected and actual (positive = late)
   totalDurationMinutes?: number; // Time from creation to completion
+  // Clinician review fields (Journey 3)
+  seenByClinicianAt?: string;
+  clinicianUserId?: string;
+  clinicianValidatedColourCode?: string;
+  arrivalCondition?: ArrivalCondition;
+  arrivalConditionNotes?: string;
+  // Additional clinical fields from National Referral Form
+  knownAllergies: boolean;
+  allergyDetails?: string;
+  oxygenSaturation?: number;
+  onSupplementalOxygen: boolean;
+  bloodGroup?: string;
+  documentsDescription?: string;
+  telephoneArrangement: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +108,14 @@ export interface CreateReferralRequest {
   bloodDonorAccompanying?: boolean;
   relativeAccompanying?: boolean;
   offlineRequestId?: string;
+  // Additional clinical fields from National Referral Form
+  knownAllergies?: boolean;
+  allergyDetails?: string;
+  oxygenSaturation?: number;
+  onSupplementalOxygen?: boolean;
+  bloodGroup?: string;
+  documentsDescription?: string;
+  telephoneArrangement?: boolean;
 }
 
 export interface UpdateReferralRequest {
@@ -157,4 +179,12 @@ export interface CreateReferralResponse {
   colourCode: string;
   priority: Priority;
   createdAt: string;
+}
+
+// Clinician review request for Journey 3
+export interface ClinicianReviewRequest {
+  validatedColourCode: 'RED' | 'YELLOW' | 'GREEN';
+  arrivalCondition: ArrivalCondition;
+  arrivalConditionNotes?: string;
+  notes?: string;
 }
