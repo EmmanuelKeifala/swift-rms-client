@@ -8,13 +8,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { authService } from '@/lib/api';
 import { useAuthStore } from '@/store';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, ArrowRight, Lock } from 'lucide-react';
 
 const loginSchema = z.object({
-  phone: z.string(),
-    // .min(9, 'Phone number must be 9 digits')
-    // .max(9, 'Phone number must be 9 digits')
-    // .regex(/^[0-9]{9}$/, 'Phone number must be 9 digits (e.g., 76000002)'),
+  phone: z.string().min(1, 'Phone number is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -65,21 +62,21 @@ function LoginForm() {
   return (
     <>
       <div className="auth-form-header">
-        <h1>Sign in</h1>
-        <p>Enter your credentials to access your account</p>
+        <h1>Welcome back</h1>
+        <p>Sign in to continue to your dashboard</p>
       </div>
 
       {resetSuccess && (
         <div className="auth-success">
-          <CheckCircle2 size={16} />
-          Password reset successfully. Please sign in.
+          <CheckCircle2 size={18} strokeWidth={2} />
+          <span>Password reset successfully. Please sign in with your new password.</span>
         </div>
       )}
 
       {error && (
         <div className="auth-error">
-          <AlertCircle size={16} />
-          {error}
+          <AlertCircle size={18} strokeWidth={2} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -92,23 +89,41 @@ function LoginForm() {
               id="phone"
               type="tel"
               className={`form-input ${errors.phone ? 'error' : ''}`}
-              placeholder="XX XXX XXXX"
+              placeholder="76 XXX XXXX"
+              autoComplete="tel"
               {...register('phone')}
             />
           </div>
           {errors.phone && (
-            <span className="form-error">{errors.phone.message}</span>
+            <span className="form-error">
+              <AlertCircle size={12} />
+              {errors.phone.message}
+            </span>
           )}
         </div>
 
         <div className="form-group">
-          <label className="form-label" htmlFor="password">Password</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <label className="form-label" htmlFor="password" style={{ marginBottom: 0 }}>Password</label>
+            <Link 
+              href="/forgot-password" 
+              style={{ 
+                fontSize: '13px', 
+                color: 'var(--blue-500)', 
+                fontWeight: 500,
+                textDecoration: 'none',
+              }}
+            >
+              Forgot password?
+            </Link>
+          </div>
           <div className="password-input-wrapper">
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
               className={`form-input ${errors.password ? 'error' : ''}`}
               placeholder="Enter your password"
+              autoComplete="current-password"
               {...register('password')}
             />
             <button
@@ -121,30 +136,59 @@ function LoginForm() {
             </button>
           </div>
           {errors.password && (
-            <span className="form-error">{errors.password.message}</span>
+            <span className="form-error">
+              <AlertCircle size={12} />
+              {errors.password.message}
+            </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-4)' }}>
-          <Link href="/forgot-password" className="text-sm text-muted">
-            Forgot password?
-          </Link>
-        </div>
-
-        <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={isLoading}>
+        <button 
+          type="submit" 
+          className="btn btn-primary btn-lg" 
+          style={{ 
+            width: '100%', 
+            marginTop: '8px',
+            background: 'linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)',
+            border: 'none',
+            boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
+          }} 
+          disabled={isLoading}
+        >
           {isLoading ? (
             <>
               <Loader2 size={18} style={{ animation: 'spin 0.6s linear infinite' }} />
               Signing in...
             </>
           ) : (
-            'Sign in'
+            <>
+              Sign in
+              <ArrowRight size={18} />
+            </>
           )}
         </button>
       </form>
 
+      {/* Security notice */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        gap: '8px',
+        marginTop: '24px',
+        padding: '12px',
+        background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.03))',
+        borderRadius: '10px',
+        border: '1px solid rgba(34, 197, 94, 0.15)',
+      }}>
+        <Lock size={14} style={{ color: 'var(--green-500)' }} />
+        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+          Secured with end-to-end encryption
+        </span>
+      </div>
+
       <div className="auth-footer">
-        <p>RMS Healthcare Platform</p>
+        <p style={{ fontWeight: 500, color: 'var(--foreground)' }}>RMS Healthcare Platform</p>
         <p>Sierra Leone Ministry of Health</p>
       </div>
     </>
@@ -154,8 +198,16 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
-        <div className="spinner" />
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center', 
+        padding: '60px',
+        gap: '12px'
+      }}>
+        <div className="spinner spinner-lg" />
+        <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Loading...</span>
       </div>
     }>
       <LoginForm />

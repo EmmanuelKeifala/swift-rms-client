@@ -12,7 +12,8 @@ import {
   User, 
   Settings, 
   LogOut,
-  ChevronDown
+  ChevronDown,
+  HelpCircle
 } from 'lucide-react';
 
 export function Header() {
@@ -62,12 +63,12 @@ export function Header() {
           onClick={toggleMobileSidebar}
           aria-label="Open menu"
         >
-          <Menu size={20} />
+          <Menu size={20} strokeWidth={1.75} />
         </button>
         
         {user?.facility && (
           <div className="header-badge">
-            <Building2 size={14} />
+            <Building2 size={14} strokeWidth={2} />
             <span>{user.facility.name}</span>
           </div>
         )}
@@ -93,16 +94,37 @@ export function Header() {
                 {user?.userType && formatUserType(user.userType)}
               </div>
             </div>
-            <ChevronDown size={14} className="hide-mobile" style={{ color: 'var(--muted)' }} />
+            <ChevronDown 
+              size={14} 
+              className="hide-mobile" 
+              style={{ 
+                color: 'var(--muted)',
+                transition: 'transform 0.2s ease',
+                transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+              }} 
+            />
           </button>
 
           <div className={`dropdown-menu ${dropdownOpen ? 'open' : ''}`}>
+            <div style={{ 
+              padding: 'var(--space-3) var(--space-4)', 
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 'var(--space-2)'
+            }}>
+              <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+                {user?.firstName} {user?.lastName}
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+                {user?.email || user?.phone}
+              </div>
+            </div>
+
             <Link 
               href="/profile" 
               className="dropdown-item"
               onClick={() => setDropdownOpen(false)}
             >
-              <User size={16} />
+              <User size={16} strokeWidth={1.75} />
               Profile
             </Link>
             <Link 
@@ -110,8 +132,16 @@ export function Header() {
               className="dropdown-item"
               onClick={() => setDropdownOpen(false)}
             >
-              <Settings size={16} />
+              <Settings size={16} strokeWidth={1.75} />
               Settings
+            </Link>
+            <Link 
+              href="/help" 
+              className="dropdown-item"
+              onClick={() => setDropdownOpen(false)}
+            >
+              <HelpCircle size={16} strokeWidth={1.75} />
+              Help & Support
             </Link>
             <div className="dropdown-divider" />
             <button 
@@ -119,7 +149,7 @@ export function Header() {
               onClick={handleLogout}
               style={{ color: 'var(--error)' }}
             >
-              <LogOut size={16} />
+              <LogOut size={16} strokeWidth={1.75} />
               Sign out
             </button>
           </div>
