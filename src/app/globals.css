@@ -1,7 +1,5 @@
 /* ============================================
    Swift RMS Design System
-   Mirrored from DFCMS Enterprise Dashboard
-   Dark theme with glassmorphism
    ============================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
@@ -290,7 +288,7 @@ a:hover {
 }
 
 /* ============================================
-   BUTTONS - Premium with micro-interactions
+   BUTTONS
    ============================================ */
 
 .btn {
@@ -390,7 +388,7 @@ a:hover {
 .btn-icon { padding: 10px; width: 40px; }
 
 /* ============================================
-   INPUTS - Modern with focus states
+   INPUTS
    ============================================ */
 
 .input, .form-input {
@@ -510,7 +508,7 @@ a:hover {
 }
 
 /* ============================================
-   CARDS - Solid dark with subtle borders
+   CARDS
    ============================================ */
 
 .card {
@@ -559,7 +557,7 @@ a:hover {
 }
 
 /* ============================================
-   BADGES - Pill style with subtle glow
+   BADGES
    ============================================ */
 
 .badge {
@@ -624,7 +622,7 @@ a:hover {
 }
 
 /* ============================================
-   TABLES - Clean lines with hover states
+   TABLES
    ============================================ */
 
 .table-container {
@@ -1064,16 +1062,19 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: var(--space-5);
+  width: 100%;
 }
 
+.col-4 { grid-column: span 4; }
 .col-6 { grid-column: span 6; }
+.col-8 { grid-column: span 8; }
 .col-12 { grid-column: span 12; }
 
 @media (max-width: 1024px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
-  .col-6, .col-12 { grid-column: span 1; }
+  .col-4, .col-6, .col-8, .col-12 { grid-column: span 1; }
 }
 
 /* Detail Card - Dark theme for referral detail page */

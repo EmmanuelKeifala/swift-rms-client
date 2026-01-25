@@ -64,24 +64,25 @@ interface User {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const colors: Record<string, { bg: string; text: string }> = {
-    SYSTEM_ADMIN: { bg: 'var(--error-light)', text: 'var(--error)' },
-    HOSPITAL_DESK: { bg: 'var(--info-light)', text: 'var(--info)' },
-    REFERRAL_COORDINATOR: { bg: 'var(--success-light)', text: 'var(--success)' },
-    AMBULANCE_DISPATCH: { bg: 'var(--warning-light)', text: 'var(--warning)' },
-    DISTRICT_HEALTH: { bg: 'rgba(121, 40, 202, 0.1)', text: 'var(--purple-500)' },
-    NATIONAL_USER: { bg: 'var(--accent)', text: 'var(--foreground)' },
-    PHU_STAFF: { bg: 'var(--accent)', text: 'var(--foreground)' },
-    SPECIALIST: { bg: 'var(--info-light)', text: 'var(--info)' },
+  const colors: Record<string, { bg: string; color: string; border: string }> = {
+    SYSTEM_ADMIN: { bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.3)' },
+    HOSPITAL_DESK: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: 'rgba(59, 130, 246, 0.3)' },
+    REFERRAL_COORDINATOR: { bg: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: 'rgba(34, 197, 94, 0.3)' },
+    AMBULANCE_DISPATCH: { bg: 'rgba(234, 179, 8, 0.15)', color: '#fbbf24', border: 'rgba(234, 179, 8, 0.3)' },
+    DISTRICT_HEALTH: { bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.3)' },
+    NATIONAL_USER: { bg: 'var(--bg-overlay)', color: 'var(--text-secondary)', border: 'var(--border-subtle)' },
+    PHU_STAFF: { bg: 'rgba(20, 184, 166, 0.15)', color: '#2dd4bf', border: 'rgba(20, 184, 166, 0.3)' },
+    SPECIALIST: { bg: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', border: 'rgba(236, 72, 153, 0.3)' },
   };
   const c = colors[role] || colors.NATIONAL_USER;
   return (
     <span style={{ 
-      padding: 'var(--space-1) var(--space-2)', 
+      padding: '4px 10px', 
       background: c.bg, 
-      color: c.text,
-      borderRadius: 'var(--radius-sm)',
-      fontSize: 'var(--text-xs)',
+      color: c.color,
+      border: `1px solid ${c.border}`,
+      borderRadius: 'var(--radius-full)',
+      fontSize: '11px',
       fontWeight: 500,
       whiteSpace: 'nowrap'
     }}>
@@ -331,11 +332,13 @@ export default function AdminUsersPage() {
                           padding: 'var(--space-4)',
                           textAlign: 'left',
                           fontWeight: 600,
-                          fontSize: 'var(--text-sm)',
-                          color: 'var(--muted)',
-                          background: 'var(--accent)',
+                          fontSize: '12px',
+                          color: 'var(--text-tertiary)',
+                          background: 'var(--bg-overlay)',
                           cursor: header.column.getCanSort() ? 'pointer' : 'default',
                           userSelect: 'none',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.02em'
                         }}
                         onClick={header.column.getToggleSortingHandler()}
                       >

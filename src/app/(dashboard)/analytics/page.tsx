@@ -2,18 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import { 
-  BarChart3, 
   TrendingUp,
   TrendingDown,
   Activity,
-  Users,
   Clock,
-  Calendar,
-  ArrowRight,
-  Building2,
   AlertTriangle,
   Download,
-  Filter
+  Calendar
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -35,14 +30,11 @@ import { analyticsService } from '@/lib/api/analytics';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
 const COLORS = {
-  // Outcomes
-  'COMPLETED': '#10B981', // green
-  'ADMITTED': '#3B82F6',  // blue
-  'REFERRED': '#F59E0B',  // amber
-  'DECEASED': '#DC2626',  // red
-  'DISCHARGED': '#34D399', // emerald
-  
-  // Priorities
+  'COMPLETED': '#10B981',
+  'ADMITTED': '#3B82F6',
+  'REFERRED': '#F59E0B',
+  'DECEASED': '#DC2626',
+  'DISCHARGED': '#34D399',
   'CRITICAL': '#DC2626',
   'HIGH': '#F59E0B',
   'MEDIUM': '#3B82F6',
@@ -54,18 +46,19 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div style={{ 
-        background: 'var(--card-bg)', 
-        border: '1px solid var(--border)', 
-        padding: '8px 12px', 
-        borderRadius: '8px',
-        boxShadow: 'var(--shadow-md)',
+        background: 'var(--bg-surface)', 
+        border: '1px solid var(--border-default)', 
+        padding: '10px 14px', 
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-lg)',
         fontSize: '12px'
       }}>
-        <p style={{ fontWeight: 600, marginBottom: 4 }}>{label}</p>
+        <p style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }}>{label}</p>
         {payload.map((entry: any, index: number) => (
           <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8, color: entry.color }}>
             <span style={{ width: 8, height: 8, borderRadius: 4, background: entry.color }} />
-            <span>{entry.name}: {entry.value}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{entry.name}:</span>
+            <span style={{ fontWeight: 600 }}>{entry.value}</span>
           </div>
         ))}
       </div>
@@ -143,24 +136,29 @@ export default function AnalyticsPage() {
   // Calculate insights
   const successRate = useMemo(() => {
     if (!referralData?.summary?.totalReferrals || !outcomeData?.totalCompleted) return 0;
-    // Assuming success is non-deceased outcomes or just completion rate?
-    // Let's use completion rate as success for now
     return Math.round((referralData.summary.completed / referralData.summary.totalReferrals) * 100);
   }, [referralData, outcomeData]);
 
   const highRejectionFacilities = useMemo(() => {
     return facilityData
-      ?.filter(f => f.rejectionRate > 20) // Facilities with > 20% rejection rate
+      ?.filter(f => f.rejectionRate > 20)
       .sort((a, b) => b.rejectionRate - a.rejectionRate)
       .slice(0, 3) || [];
   }, [facilityData]);
 
+  const periodOptions = [
+    { value: '7d', label: '7 Days' },
+    { value: '30d', label: '30 Days' },
+    { value: '90d', label: '3 Months' },
+    { value: '1y', label: '1 Year' },
+  ];
+
   if (isLoading) {
     return (
-      <div className="flex h-[400px] w-full items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-          <p className="text-sm font-medium text-gray-500">Loading insights...</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto var(--space-3)' }} />
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Loading insights...</p>
         </div>
       </div>
     );
@@ -173,38 +171,46 @@ export default function AnalyticsPage() {
           <h1 className="page-title">Analytics Dashboard</h1>
           <p className="page-subtitle">Platform insights and performance metrics</p>
         </div>
-        <div className="flex gap-2">
-          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
-            {['7d', '30d', '90d', '1y'].map((p) => (
+        <div className="flex gap-3">
+          {/* Period Selector */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '2px',
+            padding: '4px',
+            background: 'var(--bg-overlay)', 
+            border: '1px solid var(--border-default)', 
+            borderRadius: 'var(--radius-lg)'
+          }}>
+            {periodOptions.map((p) => (
               <button 
-                key={p}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  period === p 
-                    ? 'bg-blue-50 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
                 style={{
-                  background: period === p ? 'var(--accent)' : 'transparent',
-                  color: period === p ? 'var(--primary)' : 'var(--muted)',
+                  padding: '8px 14px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  borderRadius: 'var(--radius-md)',
+                  border: 'none',
+                  background: period === p.value ? 'var(--accent-subtle)' : 'transparent',
+                  color: period === p.value ? 'var(--accent-light)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
                 }}
-                onClick={() => setPeriod(p)}
               >
-                {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : p === '90d' ? '3 Months' : '1 Year'}
+                {p.label}
               </button>
             ))}
           </div>
-          <button className="btn btn-secondary gap-2">
-            <Filter size={16} />
-            Filter
-          </button>
-          <button className="btn btn-secondary gap-2">
+          <button className="btn btn-secondary">
             <Download size={16} />
             Export
           </button>
         </div>
       </div>
 
-      <div className="stats-grid mb-6">
+      {/* Stats Grid */}
+      <div className="stats-grid" style={{ marginBottom: 'var(--space-6)' }}>
         <StatCard
           label="Total Referrals"
           value={referralData?.summary?.totalReferrals.toLocaleString() || '0'}
@@ -242,39 +248,42 @@ export default function AnalyticsPage() {
       <div className="dashboard-grid">
         {/* Main Volume Chart */}
         <div className="col-8">
-          <div className="card h-full">
-            <div className="card-header">
-              <h3 className="card-title">Referral Volume Trends</h3>
+          <div className="card" style={{ height: '100%' }}>
+            <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <h3 className="card-title">
+                <Calendar size={16} />
+                Referral Volume Trends
+              </h3>
             </div>
-            <div style={{ height: 320 }}>
+            <div style={{ height: 320, padding: 'var(--space-4)' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={volumeTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" />
                   <XAxis 
                     dataKey="date" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 12, fill: '#6B7280' }} 
+                    tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} 
                     dy={10}
                     tickFormatter={(value) => format(new Date(value), 'MMM d')}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 12, fill: '#6B7280' }} 
+                    tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} 
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Area 
                     type="monotone" 
                     dataKey="count" 
                     name="Total Referrals"
-                    stroke="#2563EB" 
+                    stroke="var(--accent)" 
                     fillOpacity={1} 
                     fill="url(#colorTotal)" 
                     strokeWidth={2}
@@ -287,25 +296,28 @@ export default function AnalyticsPage() {
 
         {/* Priority Breakdown */}
         <div className="col-4">
-          <div className="card h-full">
-            <div className="card-header">
-              <h3 className="card-title">Referrals by Priority</h3>
+          <div className="card" style={{ height: '100%' }}>
+            <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <h3 className="card-title">
+                <AlertTriangle size={16} />
+                Referrals by Priority
+              </h3>
             </div>
-            <div style={{ height: 320 }}>
+            <div style={{ height: 320, padding: 'var(--space-4)' }}>
               {priorityChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={priorityChartData} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                  <BarChart data={priorityChartData} layout="vertical" margin={{ top: 0, right: 30, left: 60, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--border-subtle)" />
                     <XAxis type="number" hide />
                     <YAxis 
                       dataKey="name" 
                       type="category" 
                       axisLine={false} 
                       tickLine={false}
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
+                      tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
                     />
                     <Tooltip 
-                      cursor={{ fill: 'transparent' }}
+                      cursor={{ fill: 'var(--bg-overlay)' }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const total = priorityChartData.reduce((acc, curr) => acc + curr.value, 0);
@@ -313,7 +325,13 @@ export default function AnalyticsPage() {
                           const percentage = Math.round((val / total) * 100);
                           
                           return (
-                            <div className="bg-white border rounded-lg p-2 shadow-md text-xs">
+                            <div style={{
+                              background: 'var(--bg-surface)',
+                              border: '1px solid var(--border-default)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '12px'
+                            }}>
                               <span style={{ color: payload[0].payload.color, fontWeight: 600 }}>
                                 {percentage}% ({val})
                               </span>
@@ -323,7 +341,7 @@ export default function AnalyticsPage() {
                         return null;
                       }}
                     />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32}>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={28}>
                       {priorityChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
@@ -331,7 +349,7 @@ export default function AnalyticsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted text-sm">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)', fontSize: '14px' }}>
                   No data available
                 </div>
               )}
@@ -341,80 +359,98 @@ export default function AnalyticsPage() {
 
         {/* Outcome Breakdown */}
         <div className="col-4">
-          <div className="card h-full">
-            <div className="card-header">
-              <h3 className="card-title">Outcomes</h3>
+          <div className="card" style={{ height: '100%' }}>
+            <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <h3 className="card-title">
+                <TrendingUp size={16} />
+                Outcomes
+              </h3>
             </div>
-            <div style={{ height: 250, position: 'relative' }}>
-              {outcomeChartData.length > 0 ? (
-                <>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={outcomeChartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {outcomeChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ 
-                    position: 'absolute', 
-                    top: '50%', 
-                    left: '50%', 
-                    transform: 'translate(-50%, -50%)',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--foreground)' }}>
-                      {outcomeData?.totalCompleted || 0}
+            <div style={{ padding: 'var(--space-4)' }}>
+              <div style={{ height: 200, position: 'relative' }}>
+                {outcomeChartData.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={outcomeChartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={75}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {outcomeChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: '50%', 
+                      left: '50%', 
+                      transform: 'translate(-50%, -50%)',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {outcomeData?.totalCompleted || 0}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Total</div>
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Total</div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)', fontSize: '14px' }}>
+                    No outcome data
                   </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted text-sm">
-                  No outcome data
-                </div>
-              )}
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {outcomeChartData.slice(0, 4).map((item) => (
-                <div key={item.name} className="flex items-center gap-2 text-sm">
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
-                  <span className="text-muted truncate">{item.name}</span>
-                  <span className="font-medium ml-auto">{item.value}</span>
-                </div>
-              ))}
+                )}
+              </div>
+              {/* Legend */}
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(2, 1fr)', 
+                gap: 'var(--space-2)',
+                marginTop: 'var(--space-4)',
+                paddingTop: 'var(--space-3)',
+                borderTop: '1px solid var(--border-subtle)'
+              }}>
+                {outcomeChartData.slice(0, 4).map((item) => (
+                  <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                    <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Alert Cards - Dynamic Insights */}
+        {/* Critical Insights */}
         <div className="col-8">
-          <div className="card h-full">
-            <div className="card-header">
-              <h3 className="card-title flex items-center gap-2">
+          <div className="card" style={{ height: '100%' }}>
+            <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <h3 className="card-title">
                 <AlertTriangle size={16} />
                 Critical Insights
               </h3>
             </div>
-            <div className="flex flex-col gap-4 p-2">
+            <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
               {/* High Rejection Facilities Insight */}
               {highRejectionFacilities.length > 0 ? (
-                <div className="flex-1 p-4 rounded-lg border border-yellow-200 bg-yellow-50" style={{ background: 'var(--warning-light)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
-                  <div className="flex gap-3">
-                    <AlertTriangle className="text-yellow-600 shrink-0" size={20} style={{ color: 'var(--warning)' }} />
+                <div style={{ 
+                  padding: 'var(--space-4)', 
+                  borderRadius: 'var(--radius-lg)', 
+                  border: '1px solid rgba(234, 179, 8, 0.3)',
+                  background: 'rgba(234, 179, 8, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <AlertTriangle size={20} style={{ color: '#fbbf24', flexShrink: 0 }} />
                     <div>
-                      <h4 className="font-semibold text-yellow-900 mb-1" style={{ color: '#92400E' }}>High Rejection Rates Detected</h4>
-                      <p className="text-sm text-yellow-700" style={{ color: '#B45309' }}>
+                      <h4 style={{ fontWeight: 600, color: '#fbbf24', marginBottom: '4px' }}>High Rejection Rates Detected</h4>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                         {highRejectionFacilities[0].facilityName} has a {Math.round(highRejectionFacilities[0].rejectionRate)}% rejection rate.
                         {highRejectionFacilities[0].topRejectionReason && ` Top reason: ${highRejectionFacilities[0].topRejectionReason}`}
                       </p>
@@ -422,25 +458,37 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 p-4 rounded-lg border border-green-200 bg-green-50">
-                  <div className="flex gap-3">
-                     <TrendingUp className="text-green-600 shrink-0" size={20} />
-                     <div>
-                       <h4 className="font-semibold text-green-900 mb-1">Healthy Rejection Rates</h4>
-                       <p className="text-sm text-green-700">All facilities are maintaining rejection rates below 20%.</p>
-                     </div>
+                <div style={{ 
+                  padding: 'var(--space-4)', 
+                  borderRadius: 'var(--radius-lg)', 
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  background: 'rgba(34, 197, 94, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <TrendingUp size={20} style={{ color: '#4ade80', flexShrink: 0 }} />
+                    <div>
+                      <h4 style={{ fontWeight: 600, color: '#4ade80', marginBottom: '4px' }}>Healthy Rejection Rates</h4>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        All facilities are maintaining rejection rates below 20%.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
               
               {/* Response Time Insight */}
               {responseTimeData?.averageMinutes && responseTimeData.averageMinutes > 45 && (
-                <div className="flex-1 p-4 rounded-lg border border-red-200 bg-red-50">
-                  <div className="flex gap-3">
-                    <Clock className="text-red-600 shrink-0" size={20} />
+                <div style={{ 
+                  padding: 'var(--space-4)', 
+                  borderRadius: 'var(--radius-lg)', 
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  background: 'rgba(239, 68, 68, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <Clock size={20} style={{ color: '#f87171', flexShrink: 0 }} />
                     <div>
-                      <h4 className="font-semibold text-red-900 mb-1">Slow Response Times</h4>
-                      <p className="text-sm text-red-700">
+                      <h4 style={{ fontWeight: 600, color: '#f87171', marginBottom: '4px' }}>Slow Response Times</h4>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                         Average response time is {Math.round(responseTimeData.averageMinutes)} mins, exceeding the 30 min target.
                       </p>
                     </div>
@@ -448,22 +496,26 @@ export default function AnalyticsPage() {
                 </div>
               )}
 
-              {/* Volume Insight - simple based on trend */}
+              {/* Volume Insight */}
               {volumeTrendData.length >= 2 && 
                volumeTrendData[volumeTrendData.length-1].count > volumeTrendData[volumeTrendData.length-2].count * 1.2 && (
-                <div className="flex-1 p-4 rounded-lg border border-blue-200 bg-blue-50">
-                   <div className="flex gap-3">
-                     <Activity className="text-blue-600 shrink-0" size={20} />
-                     <div>
-                       <h4 className="font-semibold text-blue-900 mb-1">Surge in Referrals</h4>
-                       <p className="text-sm text-blue-700">
-                         Recent volume shows a 20% increase compared to previous day.
-                       </p>
-                     </div>
-                   </div>
-                 </div>
-               )
-              }
+                <div style={{ 
+                  padding: 'var(--space-4)', 
+                  borderRadius: 'var(--radius-lg)', 
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  background: 'rgba(59, 130, 246, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <Activity size={20} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                    <div>
+                      <h4 style={{ fontWeight: 600, color: '#60a5fa', marginBottom: '4px' }}>Surge in Referrals</h4>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        Recent volume shows a 20% increase compared to previous day.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

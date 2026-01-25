@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,12 +13,14 @@ import {
   Phone,
   User,
   CheckCircle2,
-  AlertTriangle,
   Navigation,
   Plus,
   X,
   Wrench,
-  AlertOctagon
+  AlertOctagon,
+  Search,
+  Settings,
+  Users
 } from 'lucide-react';
 
 const ambulanceSchema = z.object({
@@ -33,27 +35,52 @@ const ambulanceSchema = z.object({
 type AmbulanceFormData = z.infer<typeof ambulanceSchema>;
 
 function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
-    AVAILABLE: { bg: 'rgba(34, 197, 94, 0.1)', text: 'var(--success)', icon: <CheckCircle2 size={12} /> },
-    ON_MISSION: { bg: 'rgba(59, 130, 246, 0.1)', text: 'var(--primary)', icon: <Navigation size={12} /> },
-    MAINTENANCE: { bg: 'rgba(245, 158, 11, 0.1)', text: 'var(--warning)', icon: <Wrench size={12} /> },
-    OUT_OF_SERVICE: { bg: 'rgba(239, 68, 68, 0.1)', text: 'var(--error)', icon: <AlertOctagon size={12} /> },
+  const config: Record<string, { bg: string; color: string; border: string; icon: React.ReactNode; label: string }> = {
+    AVAILABLE: { 
+      bg: 'rgba(34, 197, 94, 0.15)', 
+      color: '#4ade80', 
+      border: 'rgba(34, 197, 94, 0.3)',
+      icon: <CheckCircle2 size={12} />,
+      label: 'Available'
+    },
+    ON_MISSION: { 
+      bg: 'rgba(59, 130, 246, 0.15)', 
+      color: '#60a5fa', 
+      border: 'rgba(59, 130, 246, 0.3)',
+      icon: <Navigation size={12} />,
+      label: 'On Mission'
+    },
+    MAINTENANCE: { 
+      bg: 'rgba(234, 179, 8, 0.15)', 
+      color: '#fbbf24', 
+      border: 'rgba(234, 179, 8, 0.3)',
+      icon: <Wrench size={12} />,
+      label: 'Maintenance'
+    },
+    OUT_OF_SERVICE: { 
+      bg: 'rgba(239, 68, 68, 0.15)', 
+      color: '#f87171', 
+      border: 'rgba(239, 68, 68, 0.3)',
+      icon: <AlertOctagon size={12} />,
+      label: 'Out of Service'
+    },
   };
-  const c = colors[status] || colors.OUT_OF_SERVICE;
+  const c = config[status] || config.OUT_OF_SERVICE;
   return (
     <span style={{ 
-      padding: 'var(--space-1) var(--space-2)', 
+      padding: '4px 10px', 
       background: c.bg, 
-      color: c.text,
-      borderRadius: 'var(--radius-sm)',
-      fontSize: 'var(--text-xs)',
+      color: c.color,
+      border: `1px solid ${c.border}`,
+      borderRadius: 'var(--radius-full)',
+      fontSize: '11px',
       fontWeight: 500,
       display: 'inline-flex',
       alignItems: 'center',
-      gap: 'var(--space-1)'
+      gap: '5px'
     }}>
       {c.icon}
-      {status.replace('_', ' ')}
+      {c.label}
     </span>
   );
 }
@@ -61,6 +88,8 @@ function StatusBadge({ status }: { status: string }) {
 export default function AmbulancesPage() {
   const [selected, setSelected] = useState<Ambulance | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
 
   // Fetch ambulances
@@ -83,6 +112,19 @@ export default function AmbulancesPage() {
 
   const ambulances = ambulancesData?.data || [];
   const facilities = facilitiesData?.data || [];
+
+  const filteredAmbulances = useMemo(() => {
+    return ambulances.filter((amb: Ambulance) => {
+      if (statusFilter && amb.status !== statusFilter) return false;
+      if (search) {
+        const s = search.toLowerCase();
+        return amb.ambulanceId.toLowerCase().includes(s) ||
+               amb.facility?.name?.toLowerCase().includes(s) ||
+               amb.phone?.toLowerCase().includes(s);
+      }
+      return true;
+    });
+  }, [ambulances, statusFilter, search]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AmbulanceFormData>({
     resolver: zodResolver(ambulanceSchema),
@@ -128,167 +170,257 @@ export default function AmbulancesPage() {
         </button>
       </div>
 
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-        <div className="stat-card">
+      {/* Stats */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 'var(--space-5)' }}>
+        <div className="stat-card" onClick={() => setStatusFilter('')} style={{ cursor: 'pointer', opacity: statusFilter ? 0.5 : 1 }}>
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'var(--accent-subtle)' }}>
+              <AmbulanceIcon size={20} style={{ color: 'var(--accent-light)' }} />
+            </div>
+          </div>
           <div className="stat-label">Total Fleet</div>
           <div className="stat-value">{stats?.total || 0}</div>
         </div>
-        <div className="stat-card">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />
-            <div className="stat-label">Available</div>
+        <div className="stat-card" onClick={() => setStatusFilter(statusFilter === 'AVAILABLE' ? '' : 'AVAILABLE')} style={{ cursor: 'pointer', opacity: statusFilter && statusFilter !== 'AVAILABLE' ? 0.5 : 1 }}>
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.15)' }}>
+              <CheckCircle2 size={20} style={{ color: '#4ade80' }} />
+            </div>
           </div>
-          <div className="stat-value" style={{ color: 'var(--success)' }}>{stats?.available || 0}</div>
+          <div className="stat-label">Available</div>
+          <div className="stat-value" style={{ color: '#4ade80' }}>{stats?.available || 0}</div>
         </div>
-        <div className="stat-card">
-          <div className="flex items-center gap-2">
-            <Navigation size={14} style={{ color: 'var(--primary)' }} />
-            <div className="stat-label">On Mission</div>
+        <div className="stat-card" onClick={() => setStatusFilter(statusFilter === 'ON_MISSION' ? '' : 'ON_MISSION')} style={{ cursor: 'pointer', opacity: statusFilter && statusFilter !== 'ON_MISSION' ? 0.5 : 1 }}>
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.15)' }}>
+              <Navigation size={20} style={{ color: '#60a5fa' }} />
+            </div>
           </div>
-          <div className="stat-value" style={{ color: 'var(--primary)' }}>{stats?.onMission || 0}</div>
+          <div className="stat-label">On Mission</div>
+          <div className="stat-value" style={{ color: '#60a5fa' }}>{stats?.onMission || 0}</div>
         </div>
-        <div className="stat-card">
-          <div className="flex items-center gap-2">
-            <Wrench size={14} style={{ color: 'var(--warning)' }} />
-            <div className="stat-label">Maintenance</div>
+        <div className="stat-card" onClick={() => setStatusFilter(statusFilter === 'MAINTENANCE' ? '' : 'MAINTENANCE')} style={{ cursor: 'pointer', opacity: statusFilter && statusFilter !== 'MAINTENANCE' ? 0.5 : 1 }}>
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.15)' }}>
+              <Wrench size={20} style={{ color: '#fbbf24' }} />
+            </div>
           </div>
-          <div className="stat-value" style={{ color: 'var(--warning)' }}>{stats?.maintenance || 0}</div>
+          <div className="stat-label">Maintenance</div>
+          <div className="stat-value" style={{ color: '#fbbf24' }}>{stats?.maintenance || 0}</div>
         </div>
-        <div className="stat-card">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={14} style={{ color: 'var(--error)' }} />
-            <div className="stat-label">Out of Service</div>
+        <div className="stat-card" onClick={() => setStatusFilter(statusFilter === 'OUT_OF_SERVICE' ? '' : 'OUT_OF_SERVICE')} style={{ cursor: 'pointer', opacity: statusFilter && statusFilter !== 'OUT_OF_SERVICE' ? 0.5 : 1 }}>
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.15)' }}>
+              <AlertOctagon size={20} style={{ color: '#f87171' }} />
+            </div>
           </div>
-          <div className="stat-value" style={{ color: 'var(--error)' }}>{stats?.outOfService || 0}</div>
+          <div className="stat-label">Out of Service</div>
+          <div className="stat-value" style={{ color: '#f87171' }}>{stats?.outOfService || 0}</div>
         </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="filter-bar" style={{ marginBottom: 'var(--space-5)' }}>
+        <div className="search-box" style={{ flex: 1, minWidth: 250 }}>
+          <Search size={16} className="search-box-icon" />
+          <input
+            type="text"
+            className="search-box-input"
+            placeholder="Search ambulances..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="filter-divider" />
+        <select 
+          className="filter-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">All Status</option>
+          <option value="AVAILABLE">Available</option>
+          <option value="ON_MISSION">On Mission</option>
+          <option value="MAINTENANCE">Maintenance</option>
+          <option value="OUT_OF_SERVICE">Out of Service</option>
+        </select>
       </div>
 
       {isLoading ? (
         <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
           <div className="spinner" style={{ margin: '0 auto' }} />
         </div>
-      ) : ambulances.length === 0 ? (
+      ) : filteredAmbulances.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <AmbulanceIcon size={48} style={{ color: 'var(--muted)', margin: '0 auto var(--space-4)' }} />
-          <h3 style={{ marginBottom: 'var(--space-2)' }}>No Ambulances Yet</h3>
-          <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
-            Add your first ambulance to start managing your fleet.
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            background: 'var(--bg-overlay)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto var(--space-4)'
+          }}>
+            <AmbulanceIcon size={36} style={{ color: 'var(--text-muted)' }} />
+          </div>
+          <h3 style={{ marginBottom: 'var(--space-2)', color: 'var(--text-primary)' }}>
+            {ambulances.length === 0 ? 'No Ambulances Yet' : 'No Results Found'}
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-4)' }}>
+            {ambulances.length === 0 
+              ? 'Add your first ambulance to start managing your fleet.'
+              : 'Try adjusting your search or filter criteria.'}
           </p>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} />
-            Add Ambulance
-          </button>
+          {ambulances.length === 0 && (
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={16} />
+              Add Ambulance
+            </button>
+          )}
         </div>
       ) : (
         <div className="dashboard-grid">
-          {/* Ambulance List */}
+          {/* Ambulance Grid */}
           <div className="col-8">
-            <div className="card">
-              <h3 className="card-title mb-4">Fleet Status</h3>
-              <div className="flex flex-col gap-3">
-                {ambulances.map((amb) => (
-                  <div 
-                    key={amb.id}
-                    className="flex justify-between items-center p-4"
-                    style={{ 
-                      background: selected?.id === amb.id ? 'var(--accent)' : 'var(--background)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer',
-                      transition: 'all var(--duration-fast) var(--ease)'
-                    }}
-                    onClick={() => setSelected(amb)}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div style={{ 
-                        width: 48, 
-                        height: 48, 
-                        background: amb.status === 'AVAILABLE' ? 'rgba(34, 197, 94, 0.1)' : 'var(--accent)',
-                        borderRadius: 'var(--radius-md)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <AmbulanceIcon size={24} style={{ color: amb.status === 'AVAILABLE' ? 'var(--success)' : 'var(--muted)' }} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{amb.ambulanceId}</span>
-                          <StatusBadge status={amb.status} />
-                        </div>
-                        <div className="text-sm text-muted">
-                          {amb.facility?.name || 'Unassigned'}
-                        </div>
-                      </div>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+              gap: 'var(--space-4)' 
+            }}>
+              {filteredAmbulances.map((amb: Ambulance) => (
+                <div 
+                  key={amb.id}
+                  onClick={() => setSelected(amb)}
+                  style={{ 
+                    padding: 'var(--space-4)',
+                    background: selected?.id === amb.id ? 'var(--bg-overlay)' : 'var(--bg-surface)',
+                    border: `1px solid ${selected?.id === amb.id ? 'var(--accent)' : 'var(--border-default)'}`,
+                    borderRadius: 'var(--radius-xl)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div style={{ 
+                      width: 44, 
+                      height: 44, 
+                      background: amb.status === 'AVAILABLE' ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-overlay)',
+                      borderRadius: 'var(--radius-lg)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <AmbulanceIcon size={22} style={{ 
+                        color: amb.status === 'AVAILABLE' ? '#4ade80' : 
+                               amb.status === 'ON_MISSION' ? '#60a5fa' : 
+                               amb.status === 'MAINTENANCE' ? '#fbbf24' : '#f87171' 
+                      }} />
                     </div>
-
-                    <div className="flex items-center gap-6">
-                      {amb.latitude && amb.longitude && (
-                        <div className="flex items-center gap-1 text-sm text-muted">
-                          <MapPin size={14} />
-                          <span>{Number(amb.latitude).toFixed(4)}, {Number(amb.longitude).toFixed(4)}</span>
-                        </div>
-                      )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {amb.ambulanceId}
+                      </div>
+                      <StatusBadge status={amb.status} />
                     </div>
                   </div>
-                ))}
-              </div>
+                  
+                  <div style={{ 
+                    padding: 'var(--space-3)', 
+                    background: 'var(--bg-subtle)', 
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: 'var(--space-3)'
+                  }}>
+                    <div className="flex items-center gap-2" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
+                      {amb.facility?.name || 'Unassigned'}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    {amb.phone ? (
+                      <div className="flex items-center gap-2" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                        <Phone size={12} />
+                        {amb.phone}
+                      </div>
+                    ) : <span />}
+                    {amb.crewMembers && amb.crewMembers.length > 0 && (
+                      <div className="flex items-center gap-1" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                        <Users size={12} />
+                        {amb.crewMembers.length}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Selected Ambulance Details */}
           <div className="col-4">
-            <div className="card" style={{ position: 'sticky', top: 'var(--space-6)' }}>
-              <h3 className="card-title mb-4">Details</h3>
+            <div className="card" style={{ position: 'sticky', top: 'var(--space-5)' }}>
+              <h3 className="card-title mb-4">
+                <Settings size={16} />
+                Details
+              </h3>
               {selected ? (
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center gap-3">
                     <div style={{ 
                       width: 56, 
                       height: 56, 
-                      background: 'var(--accent)',
+                      background: 'var(--accent-subtle)',
                       borderRadius: 'var(--radius-lg)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}>
-                      <AmbulanceIcon size={28} style={{ color: 'var(--muted)' }} />
+                      <AmbulanceIcon size={28} style={{ color: 'var(--accent-light)' }} />
                     </div>
                     <div>
-                      <div className="font-semibold">{selected.ambulanceId}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {selected.ambulanceId}
+                      </div>
                       <StatusBadge status={selected.status} />
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3" style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
+                  <div className="flex flex-col gap-3" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-4)' }}>
                     {selected.phone && (
                       <div>
-                        <div className="text-xs text-muted mb-1">Phone</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Phone
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Phone size={14} style={{ color: 'var(--muted)' }} />
-                          <a href={`tel:${selected.phone}`} className="text-sm link">{selected.phone}</a>
+                          <Phone size={14} style={{ color: 'var(--text-tertiary)' }} />
+                          <a href={`tel:${selected.phone}`} style={{ color: 'var(--accent-light)', fontSize: '14px' }}>{selected.phone}</a>
                         </div>
                       </div>
                     )}
                     {selected.facility && (
                       <div>
-                        <div className="text-xs text-muted mb-1">Assigned Facility</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Assigned Facility
+                        </div>
                         <div className="flex items-center gap-2">
-                          <MapPin size={14} style={{ color: 'var(--muted)' }} />
-                          <span className="text-sm">{selected.facility.name}</span>
+                          <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
+                          <span style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{selected.facility.name}</span>
                         </div>
                       </div>
                     )}
                     {selected.crewMembers && selected.crewMembers.length > 0 && (
                       <div>
-                        <div className="text-xs text-muted mb-1">Crew Members</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Crew Members
+                        </div>
                         <div className="flex flex-wrap gap-1">
                           {selected.crewMembers.map((crew, i) => (
                             <span key={i} style={{
-                              padding: 'var(--space-1) var(--space-2)',
-                              background: 'var(--accent)',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: 'var(--text-xs)'
+                              padding: '4px 10px',
+                              background: 'var(--bg-overlay)',
+                              border: '1px solid var(--border-subtle)',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: '12px',
+                              color: 'var(--text-secondary)'
                             }}>
                               {crew}
                             </span>
@@ -298,15 +430,18 @@ export default function AmbulancesPage() {
                     )}
                     {selected.equipment && selected.equipment.length > 0 && (
                       <div>
-                        <div className="text-xs text-muted mb-1">Equipment</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Equipment
+                        </div>
                         <div className="flex flex-wrap gap-1">
                           {selected.equipment.map((equip, i) => (
                             <span key={i} style={{
-                              padding: 'var(--space-1) var(--space-2)',
-                              background: 'rgba(59, 130, 246, 0.1)',
-                              color: 'var(--primary)',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: 'var(--text-xs)'
+                              padding: '4px 10px',
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              color: '#60a5fa',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: '12px'
                             }}>
                               {equip}
                             </span>
@@ -316,18 +451,36 @@ export default function AmbulancesPage() {
                     )}
                     {selected.latitude && selected.longitude && (
                       <div>
-                        <div className="text-xs text-muted mb-1">Location</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Location
+                        </div>
                         <div className="flex items-center gap-2">
-                          <MapPin size={14} style={{ color: 'var(--muted)' }} />
-                          <span className="text-sm">{Number(selected.latitude).toFixed(5)}, {Number(selected.longitude).toFixed(5)}</span>
+                          <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            {Number(selected.latitude).toFixed(5)}, {Number(selected.longitude).toFixed(5)}
+                          </span>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 'var(--space-8)' }}>
-                  Select an ambulance to view details
+                <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+                  <div style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'var(--bg-overlay)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto var(--space-3)'
+                  }}>
+                    <AmbulanceIcon size={24} style={{ color: 'var(--text-muted)' }} />
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    Select an ambulance to view details
+                  </p>
                 </div>
               )}
             </div>
@@ -337,88 +490,167 @@ export default function AmbulancesPage() {
 
       {/* Add Ambulance Modal */}
       {showModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: 'var(--space-4)'
-        }}>
-          <div className="card" style={{ maxWidth: 520, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="card-title">Add New Ambulance</h3>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}>
-                <X size={18} />
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 'var(--space-4)'
+          }}
+          onClick={() => setShowModal(false)}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-xl)',
+              boxShadow: 'var(--shadow-xl)',
+              maxWidth: 520,
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto'
+            }}
+          >
+            {/* Header */}
+            <div style={{ 
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 'var(--space-5)',
+              borderBottom: '1px solid var(--border-subtle)'
+            }}>
+              <div className="flex items-center gap-3">
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 'var(--radius-lg)',
+                  background: 'var(--accent-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <AmbulanceIcon size={20} style={{ color: 'var(--accent-light)' }} />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Add Ambulance
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                    Register a new vehicle
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowModal(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 'var(--radius-md)',
+                  border: 'none',
+                  background: 'var(--glass-bg)',
+                  color: 'var(--text-tertiary)',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={16} />
               </button>
             </div>
+
             <form onSubmit={handleSubmit(onSubmit)}>
-              <div className="form-group">
-                <label className="form-label">Ambulance ID *</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="e.g., AMB-001"
-                  {...register('ambulanceId')}
-                />
-                {errors.ambulanceId && <p className="form-error">{errors.ambulanceId.message}</p>}
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Assigned Facility</label>
-                <select className="form-input" {...register('facilityId')}>
-                  <option value="">-- Select Facility --</option>
-                  {facilities.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
+              <div style={{ padding: 'var(--space-5)' }}>
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                    Ambulance ID *
+                  </label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g., AMB-001"
+                    {...register('ambulanceId')}
+                  />
+                  {errors.ambulanceId && <p style={{ fontSize: '12px', color: 'var(--danger)', marginTop: '4px' }}>{errors.ambulanceId.message}</p>}
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                      Status
+                    </label>
+                    <select className="form-input" {...register('status')}>
+                      <option value="AVAILABLE">Available</option>
+                      <option value="ON_MISSION">On Mission</option>
+                      <option value="MAINTENANCE">Maintenance</option>
+                      <option value="OUT_OF_SERVICE">Out of Service</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                      Phone Number
+                    </label>
+                    <input 
+                      type="tel" 
+                      className="form-input" 
+                      placeholder="+232 XX XXX XXX"
+                      {...register('phone')}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                    Assigned Facility
+                  </label>
+                  <select className="form-input" {...register('facilityId')}>
+                    <option value="">-- Select Facility --</option>
+                    {facilities.map((f: { id: string; name: string }) => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                    Equipment
+                  </label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="AED, Oxygen, Stretcher (comma separated)"
+                    {...register('equipment')}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                    Crew Members
+                  </label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Names (comma separated)"
+                    {...register('crewMembers')}
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Status</label>
-                <select className="form-input" {...register('status')}>
-                  <option value="AVAILABLE">Available</option>
-                  <option value="ON_MISSION">On Mission</option>
-                  <option value="MAINTENANCE">Maintenance</option>
-                  <option value="OUT_OF_SERVICE">Out of Service</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Phone Number</label>
-                <input 
-                  type="tel" 
-                  className="form-input" 
-                  placeholder="e.g., +232 76 123 456"
-                  {...register('phone')}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Equipment</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Comma separated (e.g., AED, Oxygen, Stretcher)"
-                  {...register('equipment')}
-                />
-                <p className="text-xs text-muted mt-1">Separate multiple items with commas</p>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Crew Members</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Comma separated names"
-                  {...register('crewMembers')}
-                />
-                <p className="text-xs text-muted mt-1">Separate multiple names with commas</p>
-              </div>
-
-              <div className="flex gap-2 justify-end mt-4">
+              {/* Footer */}
+              <div style={{ 
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 'var(--space-3)',
+                padding: 'var(--space-4) var(--space-5)',
+                borderTop: '1px solid var(--border-subtle)',
+                background: 'var(--bg-elevated)'
+              }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                   Cancel
                 </button>
@@ -427,7 +659,9 @@ export default function AmbulancesPage() {
                 </button>
               </div>
               {createMutation.isError && (
-                <p className="form-error mt-2">Failed to create ambulance. Please try again.</p>
+                <p style={{ padding: '0 var(--space-5) var(--space-4)', fontSize: '12px', color: 'var(--danger)' }}>
+                  Failed to create ambulance. Please try again.
+                </p>
               )}
             </form>
           </div>

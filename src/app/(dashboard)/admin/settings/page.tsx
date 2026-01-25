@@ -63,26 +63,50 @@ export default function AdminSettingsPage() {
       <div className="dashboard-grid">
         {/* Navigation */}
         <div className="col-3" style={{ gridColumn: 'span 3' }}>
-          <div className="card" style={{ padding: 'var(--space-2)' }}>
+          <div className="card" style={{ padding: 'var(--space-3)' }}>
+            <div style={{ marginBottom: 'var(--space-2)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Settings
+              </span>
+            </div>
             {sections.map((section) => (
               <button
                 key={section.id}
-                className="flex items-center gap-3 w-full text-left p-3"
+                className="flex items-center gap-3 w-full text-left"
                 style={{ 
-                  background: activeSection === section.id ? 'var(--accent)' : 'transparent',
+                  padding: 'var(--space-3)',
+                  background: activeSection === section.id ? 'var(--accent-subtle)' : 'transparent',
+                  border: activeSection === section.id ? '1px solid rgba(99, 102, 241, 0.2)' : '1px solid transparent',
                   borderRadius: 'var(--radius-md)',
-                  border: 'none',
                   cursor: 'pointer',
-                  marginBottom: 'var(--space-1)'
+                  marginBottom: 'var(--space-1)',
+                  transition: 'all 0.15s ease'
                 }}
                 onClick={() => setActiveSection(section.id)}
               >
-                <span style={{ color: activeSection === section.id ? 'var(--foreground)' : 'var(--muted)' }}>
+                <div style={{ 
+                  width: 32,
+                  height: 32,
+                  borderRadius: 'var(--radius-md)',
+                  background: activeSection === section.id ? 'var(--accent)' : 'var(--bg-overlay)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: activeSection === section.id ? 'white' : 'var(--text-tertiary)'
+                }}>
                   {section.icon}
-                </span>
-                <div>
-                  <div className="font-medium text-sm">{section.title}</div>
-                  <div className="text-xs text-muted">{section.description}</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    fontWeight: 500, 
+                    fontSize: '13px', 
+                    color: activeSection === section.id ? 'var(--text-primary)' : 'var(--text-secondary)'
+                  }}>
+                    {section.title}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                    {section.description}
+                  </div>
                 </div>
               </button>
             ))}
@@ -155,7 +179,7 @@ export default function AdminSettingsPage() {
               <h3 className="card-title mb-4">Notification Settings</h3>
               
               <div className="flex flex-col gap-4">
-                <label className="flex items-center justify-between p-4" style={{ background: 'var(--accent)', borderRadius: 'var(--radius-md)' }}>
+                <label className="flex items-center justify-between p-4" style={{ background: 'var(--bg-overlay)', borderRadius: 'var(--radius-md)' }}>
                   <div>
                     <div className="font-medium">SMS Notifications</div>
                     <div className="text-sm text-muted">Send SMS alerts for critical referrals</div>
@@ -163,7 +187,7 @@ export default function AdminSettingsPage() {
                   <input type="checkbox" defaultChecked style={{ width: 20, height: 20 }} />
                 </label>
 
-                <label className="flex items-center justify-between p-4" style={{ background: 'var(--accent)', borderRadius: 'var(--radius-md)' }}>
+                <label className="flex items-center justify-between p-4" style={{ background: 'var(--bg-overlay)', borderRadius: 'var(--radius-md)' }}>
                   <div>
                     <div className="font-medium">Push Notifications</div>
                     <div className="text-sm text-muted">Browser push notifications for updates</div>
@@ -171,7 +195,7 @@ export default function AdminSettingsPage() {
                   <input type="checkbox" defaultChecked style={{ width: 20, height: 20 }} />
                 </label>
 
-                <label className="flex items-center justify-between p-4" style={{ background: 'var(--accent)', borderRadius: 'var(--radius-md)' }}>
+                <label className="flex items-center justify-between p-4" style={{ background: 'var(--bg-overlay)', borderRadius: 'var(--radius-md)' }}>
                   <div>
                     <div className="font-medium">Email Digests</div>
                     <div className="text-sm text-muted">Daily summary emails</div>
@@ -179,7 +203,7 @@ export default function AdminSettingsPage() {
                   <input type="checkbox" style={{ width: 20, height: 20 }} />
                 </label>
 
-                <label className="flex items-center justify-between p-4" style={{ background: 'var(--accent)', borderRadius: 'var(--radius-md)' }}>
+                <label className="flex items-center justify-between p-4" style={{ background: 'var(--bg-overlay)', borderRadius: 'var(--radius-md)' }}>
                   <div>
                     <div className="font-medium">Escalation Alerts</div>
                     <div className="text-sm text-muted">Notify supervisors on delayed responses</div>
@@ -203,7 +227,7 @@ export default function AdminSettingsPage() {
               <h3 className="card-title mb-4">Security Settings</h3>
               
               <div className="flex flex-col gap-4">
-                <label className="flex items-center justify-between p-4" style={{ background: 'var(--accent)', borderRadius: 'var(--radius-md)' }}>
+                <label className="flex items-center justify-between p-4" style={{ background: 'var(--bg-overlay)', borderRadius: 'var(--radius-md)' }}>
                   <div>
                     <div className="font-medium">Two-Factor Authentication</div>
                     <div className="text-sm text-muted">Require 2FA for admin accounts</div>
@@ -211,7 +235,7 @@ export default function AdminSettingsPage() {
                   <input type="checkbox" defaultChecked style={{ width: 20, height: 20 }} />
                 </label>
 
-                <label className="flex items-center justify-between p-4" style={{ background: 'var(--accent)', borderRadius: 'var(--radius-md)' }}>
+                <label className="flex items-center justify-between p-4" style={{ background: 'var(--bg-overlay)', borderRadius: 'var(--radius-md)' }}>
                   <div>
                     <div className="font-medium">Session Timeout</div>
                     <div className="text-sm text-muted">Auto-logout after inactivity</div>
@@ -250,7 +274,7 @@ export default function AdminSettingsPage() {
                       <div style={{ 
                         width: 40, 
                         height: 40, 
-                        background: 'var(--accent)', 
+                        background: 'var(--bg-overlay)', 
                         borderRadius: 'var(--radius-md)',
                         display: 'flex',
                         alignItems: 'center',
@@ -277,7 +301,7 @@ export default function AdminSettingsPage() {
                       <div style={{ 
                         width: 40, 
                         height: 40, 
-                        background: 'var(--accent)', 
+                        background: 'var(--bg-overlay)', 
                         borderRadius: 'var(--radius-md)',
                         display: 'flex',
                         alignItems: 'center',
@@ -304,7 +328,7 @@ export default function AdminSettingsPage() {
                       <div style={{ 
                         width: 40, 
                         height: 40, 
-                        background: 'var(--accent)', 
+                        background: 'var(--bg-overlay)', 
                         borderRadius: 'var(--radius-md)',
                         display: 'flex',
                         alignItems: 'center',
