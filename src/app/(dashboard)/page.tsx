@@ -11,7 +11,6 @@ import {
   ArrowUpRight, 
   Clock, 
   ArrowRight,
-  Circle,
   Activity,
   TrendingUp,
   AlertTriangle,
@@ -20,7 +19,7 @@ import {
   Calendar,
   Users
 } from 'lucide-react';
-import { StatCard, DataTable } from '@/components/ui';
+import { StatCard, DataTable, PriorityBadge, StatusIndicator } from '@/components/ui';
 
 interface Referral {
   id: string;
@@ -38,40 +37,6 @@ interface Referral {
   createdAt?: string;
 }
 
-// Priority indicator with semantic colors
-function PriorityDot({ priority }: { priority: string }) {
-  const config: Record<string, { color: string; bg: string; label: string }> = {
-    CRITICAL: { color: '#F43F5E', bg: '#FFF1F2', label: 'Critical' },
-    HIGH: { color: '#F59E0B', bg: '#FFFBEB', label: 'High' },
-    MEDIUM: { color: '#0EA5E9', bg: '#F0F9FF', label: 'Medium' },
-    LOW: { color: '#10B981', bg: '#ECFDF5', label: 'Low' },
-  };
-  
-  const { color, bg, label } = config[priority] || { color: '#71717A', bg: '#F4F4F5', label: priority };
-  
-  return (
-    <span style={{ 
-      display: 'inline-flex', 
-      alignItems: 'center', 
-      gap: '6px',
-      padding: '4px 10px',
-      background: bg,
-      borderRadius: '100px',
-      fontSize: '12px',
-      fontWeight: 600,
-    }}>
-      <Circle size={6} fill={color} color={color} />
-      <span style={{ color }}>{label}</span>
-    </span>
-  );
-}
-
-// Status badge using CSS classes
-function StatusBadge({ status }: { status: string }) {
-  const cls = `badge badge-${status.toLowerCase().replace(/_/g, '-')}`;
-  return <span className={cls}>{status.replace(/_/g, ' ')}</span>;
-}
-
 // Quick action card for common tasks
 function QuickActionCard({ 
   icon: Icon, 
@@ -86,26 +51,22 @@ function QuickActionCard({
   href: string;
   variant?: 'default' | 'primary' | 'success' | 'warning';
 }) {
-  const styles: Record<string, { bg: string; iconBg: string; iconColor: string }> = {
+  const styles: Record<string, { iconBg: string; iconColor: string }> = {
     default: { 
-      bg: 'white', 
-      iconBg: '#F4F4F5', 
-      iconColor: '#71717A' 
+      iconBg: 'var(--glass-bg)', 
+      iconColor: 'var(--text-tertiary)' 
     },
     primary: { 
-      bg: 'white', 
-      iconBg: '#EEF2FF', 
-      iconColor: '#6366F1' 
+      iconBg: 'var(--accent-subtle)', 
+      iconColor: 'var(--accent-light)' 
     },
     success: { 
-      bg: 'white', 
-      iconBg: '#ECFDF5', 
-      iconColor: '#10B981' 
+      iconBg: 'var(--success-subtle)', 
+      iconColor: 'var(--success)' 
     },
     warning: { 
-      bg: 'white', 
-      iconBg: '#FFFBEB', 
-      iconColor: '#F59E0B' 
+      iconBg: 'var(--warning-subtle)', 
+      iconColor: 'var(--warning)' 
     },
   };
 
@@ -124,7 +85,7 @@ function QuickActionCard({
         <div style={{ 
           width: '44px', 
           height: '44px', 
-          borderRadius: '12px',
+          borderRadius: 'var(--radius-lg)',
           background: style.iconBg,
           display: 'flex',
           alignItems: 'center',
@@ -133,8 +94,8 @@ function QuickActionCard({
         }}>
           <Icon size={22} style={{ color: style.iconColor }} strokeWidth={1.75} />
         </div>
-        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', color: '#18181B' }}>{label}</div>
-        <div style={{ fontSize: '13px', color: '#71717A' }}>{description}</div>
+        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', color: 'var(--text-primary)' }}>{label}</div>
+        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{description}</div>
       </div>
     </Link>
   );
@@ -206,7 +167,7 @@ export default function DashboardPage() {
     }),
     columnHelper.accessor('priority', {
       header: 'Priority',
-      cell: info => <PriorityDot priority={info.getValue()} />,
+      cell: info => <PriorityBadge priority={info.getValue()} size="sm" />,
     }),
     columnHelper.accessor(row => `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(), {
       id: 'patient',
@@ -217,17 +178,18 @@ export default function DashboardPage() {
             width: '32px',
             height: '32px',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--gray-100), var(--gray-50))',
+            background: 'var(--glass-bg)',
+            border: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '12px',
             fontWeight: 600,
-            color: 'var(--muted)',
+            color: 'var(--text-tertiary)',
           }}>
             {info.getValue()?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || '?'}
           </div>
-          <span style={{ fontWeight: 500 }}>{info.getValue() || 'Unknown'}</span>
+          <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{info.getValue() || 'Unknown'}</span>
         </div>
       ),
     }),
@@ -248,7 +210,7 @@ export default function DashboardPage() {
     }),
     columnHelper.accessor('status', {
       header: 'Status',
-      cell: info => <StatusBadge status={info.getValue()} />,
+      cell: info => <StatusIndicator status={info.getValue()} size="sm" />,
     }),
     columnHelper.display({
       id: 'actions',
@@ -424,10 +386,10 @@ export default function DashboardPage() {
           marginBottom: '20px'
         }}>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px', color: 'var(--text-primary)' }}>
               Recent Referrals
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               Latest activity across your facility
             </p>
           </div>

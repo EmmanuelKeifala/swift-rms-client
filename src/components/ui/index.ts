@@ -8,4 +8,5 @@ export { LoadingButton } from './LoadingButton';
 export { EmptyState } from './EmptyState';
 export { PageTransition, StaggeredList } from './PageTransition';
 export { ToastContainer } from './Toast';
+export { StatusIndicator } from './StatusIndicator';
 

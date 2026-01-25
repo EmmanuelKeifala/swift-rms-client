@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { QueryProvider, PushNotificationProvider } from '@/providers';
+import { QueryProvider, PushNotificationProvider, ThemeProvider } from '@/providers';
 
 export const metadata: Metadata = {
   title: 'RMS | Referral Management System',
@@ -13,12 +13,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <body>
         <QueryProvider>
-          <PushNotificationProvider>
-            {children}
-          </PushNotificationProvider>
+          <ThemeProvider>
+            <PushNotificationProvider>
+              {children}
+            </PushNotificationProvider>
+          </ThemeProvider>
         </QueryProvider>
       </body>
     </html>

@@ -34,25 +34,25 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       right: 16px;
       z-index: 9999;
       max-width: 384px;
-      background: white;
+      background: var(--bg-surface);
       border-radius: 12px;
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
-      border: 1px solid #E5E5E5;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-default);
       padding: 16px;
       animation: slideIn 0.3s ease-out forwards;
     `;
     toast.innerHTML = `
       <div style="display: flex; align-items: flex-start; gap: 12px;">
         <div style="flex-shrink: 0;">
-          <svg style="width: 24px; height: 24px; color: #0070F3;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style="width: 24px; height: 24px; color: var(--accent-light);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
         </div>
         <div style="flex: 1; min-width: 0;">
-          <p style="font-size: 14px; font-weight: 500; color: #171717; margin: 0;">${title}</p>
-          <p style="font-size: 14px; color: #737373; margin-top: 4px;">${body}</p>
+          <p style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin: 0;">${title}</p>
+          <p style="font-size: 14px; color: var(--text-secondary); margin-top: 4px;">${body}</p>
         </div>
-        <button style="flex-shrink: 0; margin-left: 8px; color: #A3A3A3; cursor: pointer; background: none; border: none; padding: 0;" onclick="this.closest('div').parentElement.remove()">
+        <button style="flex-shrink: 0; margin-left: 8px; color: var(--text-tertiary); cursor: pointer; background: none; border: none; padding: 0;" onclick="this.closest('div').parentElement.remove()">
           <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -197,10 +197,10 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
     right: '16px',
     zIndex: 9999,
     maxWidth: '384px',
-    background: 'white',
+    background: 'var(--bg-surface)',
     borderRadius: '12px',
-    boxShadow: '0 16px 32px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.06)',
-    border: '1px solid #E5E5E5',
+    boxShadow: '0 16px 32px rgba(0, 0, 0, 0.4)',
+    border: '1px solid var(--border-default)',
     padding: '16px',
   };
 
@@ -216,19 +216,19 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
               flexShrink: 0,
               width: '40px',
               height: '40px',
-              background: 'rgba(0, 112, 243, 0.1)',
+              background: 'var(--accent-subtle)',
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Bell style={{ width: '20px', height: '20px', color: '#0070F3' }} />
+              <Bell style={{ width: '20px', height: '20px', color: 'var(--accent-light)' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#171717', margin: 0 }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                 Enable Notifications
               </h4>
-              <p style={{ fontSize: '14px', color: '#737373', marginTop: '4px' }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                 Get instant alerts for new referrals
               </p>
               <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>

@@ -299,70 +299,96 @@ export default function FacilitiesPage() {
           No facilities found
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 'var(--space-5)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
           {filteredFacilities.map((facility) => (
             <Link key={facility.id} href={`/facilities/${facility.id}`} style={{ textDecoration: 'none' }}>
-              <div className="card" style={{ height: '100%', transition: 'all var(--duration-fast) var(--ease)' }}>
+              <div className="card" style={{ 
+                height: '100%', 
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all var(--transition-fast)',
+                cursor: 'pointer'
+              }}>
+                {/* Header with icon and name */}
                 <div className="flex items-start gap-4 mb-4">
                   <div style={{ 
-                    width: 48, 
-                    height: 48, 
-                    background: 'var(--accent)', 
+                    width: 44, 
+                    height: 44, 
+                    background: 'var(--accent-subtle)', 
                     borderRadius: 'var(--radius-lg)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0
                   }}>
-                    <Building2 size={24} style={{ color: 'var(--muted)' }} />
+                    <Building2 size={22} style={{ color: 'var(--accent-light)' }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="font-semibold" style={{ marginBottom: 'var(--space-1)' }}>{facility.name}</div>
+                    <div style={{ 
+                      fontWeight: 600, 
+                      color: 'var(--text-primary)',
+                      marginBottom: '6px',
+                      fontSize: '15px'
+                    }}>
+                      {facility.name}
+                    </div>
                     <span style={{ 
                       display: 'inline-block',
-                      padding: 'var(--space-1) var(--space-2)',
-                      background: 'var(--accent)',
+                      padding: '3px 10px',
+                      background: 'var(--bg-overlay)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-sm)',
-                      fontSize: 'var(--text-xs)',
-                      fontWeight: 500
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: 'var(--text-secondary)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.02em'
                     }}>
-                      {facility.type}
+                      {facility.type?.replace(/_/g, ' ') || 'PHU'}
                     </span>
                   </div>
                 </div>
                 
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3 text-sm text-muted">
-                    <MapPin size={16} />
-                    <span>{facility.district?.name || 'Unknown District'}</span>
+                {/* Details */}
+                <div className="flex flex-col gap-2" style={{ flex: 1 }}>
+                  <div className="flex items-center gap-3" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    <MapPin size={14} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {facility.district?.name || 'Unknown District'}
+                    </span>
                   </div>
                   {facility.phone && (
-                    <div className="flex items-center gap-3 text-sm text-muted">
-                      <Phone size={16} />
+                    <div className="flex items-center gap-3" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      <Phone size={14} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
                       <span>{facility.phone}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Activity size={14} style={{ color: 'var(--muted)' }} />
-                    <span>{facility.services?.length || 0} services</span>
-                  </div>
+                {/* Footer with status */}
+                <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   <span style={{ 
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 'var(--space-1)',
-                    fontSize: 'var(--text-xs)',
-                    color: facility.isActive ? 'var(--success)' : 'var(--muted)'
+                    gap: '6px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: facility.isActive ? 'var(--success)' : 'var(--text-tertiary)'
                   }}>
                     <span style={{ 
-                      width: 8, 
-                      height: 8, 
+                      width: 7, 
+                      height: 7, 
                       borderRadius: '50%',
-                      background: facility.isActive ? 'var(--success)' : 'var(--muted)'
+                      background: facility.isActive ? 'var(--success)' : 'var(--text-muted)'
                     }} />
                     {facility.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                  <span style={{ 
+                    fontSize: '12px', 
+                    color: 'var(--text-tertiary)',
+                    fontWeight: 500
+                  }}>
+                    Level {facility.level || 1}
                   </span>
                 </div>
               </div>

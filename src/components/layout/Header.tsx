@@ -13,7 +13,9 @@ import {
   Settings, 
   LogOut,
   ChevronDown,
-  HelpCircle
+  HelpCircle,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export function Header() {
@@ -21,6 +23,8 @@ export function Header() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const toggleMobileSidebar = useUIStore((state) => state.toggleMobileSidebar);
+  const theme = useUIStore((state) => state.theme);
+  const toggleTheme = useUIStore((state) => state.toggleTheme);
   
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -75,6 +79,16 @@ export function Header() {
       </div>
 
       <div className="header-right">
+        {/* Theme Toggle */}
+        <button 
+          className="notification-btn"
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+
         <NotificationDropdown />
 
         <div className="user-dropdown" ref={dropdownRef}>
@@ -98,7 +112,7 @@ export function Header() {
               size={14} 
               className="hide-mobile" 
               style={{ 
-                color: 'var(--muted)',
+                color: 'var(--text-muted)',
                 transition: 'transform 0.2s ease',
                 transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)'
               }} 
@@ -108,13 +122,13 @@ export function Header() {
           <div className={`dropdown-menu ${dropdownOpen ? 'open' : ''}`}>
             <div style={{ 
               padding: 'var(--space-3) var(--space-4)', 
-              borderBottom: '1px solid var(--border)',
+              borderBottom: '1px solid var(--border-subtle)',
               marginBottom: 'var(--space-2)'
             }}>
-              <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+              <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
                 {user?.firstName} {user?.lastName}
               </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
                 {user?.email || user?.phone}
               </div>
             </div>
@@ -147,7 +161,7 @@ export function Header() {
             <button 
               className="dropdown-item" 
               onClick={handleLogout}
-              style={{ color: 'var(--error)' }}
+              style={{ color: 'var(--danger)' }}
             >
               <LogOut size={16} strokeWidth={1.75} />
               Sign out

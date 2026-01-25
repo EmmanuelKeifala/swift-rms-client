@@ -6,10 +6,9 @@ import { useQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { referralService } from '@/lib/api';
 import { ReferralStatus, Priority, ReferralType } from '@/types';
-import { DataTable } from '@/components/ui';
+import { DataTable, PriorityBadge, StatusIndicator } from '@/components/ui';
 import { 
   Plus, 
-  Circle, 
   ChevronLeft, 
   ChevronRight,
   Download,
@@ -19,9 +18,8 @@ import {
   ArrowRight,
   Building2,
   Clock,
-  SlidersHorizontal,
-  LayoutGrid,
   List,
+  LayoutGrid,
   RefreshCw
 } from 'lucide-react';
 
@@ -44,67 +42,6 @@ interface Referral {
   createdAt: string;
 }
 
-// UX Decision: Priority pills with semantic colors for instant recognition
-// Shape: Pill (borderRadius 20px) for soft, non-threatening appearance
-function PriorityPill({ priority }: { priority: string }) {
-  const config: Record<string, { color: string; bg: string; border: string }> = {
-    CRITICAL: { 
-      color: 'var(--red-600)', 
-      bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.06) 100%)',
-      border: 'rgba(239, 68, 68, 0.2)'
-    },
-    HIGH: { 
-      color: 'var(--amber-600)', 
-      bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.06) 100%)',
-      border: 'rgba(245, 158, 11, 0.2)'
-    },
-    MEDIUM: { 
-      color: 'var(--blue-600)', 
-      bg: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.06) 100%)',
-      border: 'rgba(59, 130, 246, 0.2)'
-    },
-    LOW: { 
-      color: 'var(--green-600)', 
-      bg: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(34, 197, 94, 0.06) 100%)',
-      border: 'rgba(34, 197, 94, 0.2)'
-    },
-  };
-  
-  const style = config[priority] || { 
-    color: 'var(--muted)', 
-    bg: 'var(--accent)', 
-    border: 'var(--border)' 
-  };
-  
-  return (
-    <span style={{ 
-      display: 'inline-flex', 
-      alignItems: 'center', 
-      gap: '6px',
-      padding: '5px 12px',
-      background: style.bg,
-      border: `1px solid ${style.border}`,
-      borderRadius: '20px',
-      fontSize: '11px',
-      fontWeight: 600,
-      textTransform: 'uppercase',
-      letterSpacing: '0.02em',
-    }}>
-      <Circle size={6} fill={style.color} color={style.color} />
-      <span style={{ color: style.color }}>{priority}</span>
-    </span>
-  );
-}
-
-// UX Decision: Status badges with gradient backgrounds for depth
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`badge badge-${status.toLowerCase().replace(/_/g, '-')}`}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  );
-}
-
 // Filter chip component for active filters visualization
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
@@ -113,12 +50,12 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
       alignItems: 'center',
       gap: '6px',
       padding: '4px 8px 4px 12px',
-      background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%)',
-      border: '1px solid rgba(59, 130, 246, 0.2)',
+      background: 'var(--accent-subtle)',
+      border: '1px solid rgba(99, 102, 241, 0.2)',
       borderRadius: '20px',
       fontSize: '12px',
       fontWeight: 500,
-      color: 'var(--blue-600)',
+      color: 'var(--accent-light)',
     }}>
       {label}
       <button 
@@ -130,13 +67,13 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
           width: '18px',
           height: '18px',
           borderRadius: '50%',
-          background: 'rgba(59, 130, 246, 0.15)',
+          background: 'rgba(99, 102, 241, 0.2)',
           border: 'none',
           cursor: 'pointer',
           transition: 'background 0.15s ease',
         }}
       >
-        <X size={10} style={{ color: 'var(--blue-600)' }} />
+        <X size={10} style={{ color: 'var(--accent-light)' }} />
       </button>
     </span>
   );
@@ -206,7 +143,7 @@ export default function ReferralsPage() {
     }),
     columnHelper.accessor('priority', {
       header: 'Priority',
-      cell: info => <PriorityPill priority={info.getValue()} />,
+      cell: info => <PriorityBadge priority={info.getValue()} size="sm" />,
     }),
     columnHelper.accessor(row => `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(), {
       id: 'patient',
@@ -217,18 +154,18 @@ export default function ReferralsPage() {
             width: '34px',
             height: '34px',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--gray-100), var(--gray-50))',
+            background: 'var(--glass-bg)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '12px',
             fontWeight: 600,
-            color: 'var(--muted)',
-            border: '1px solid var(--border)',
+            color: 'var(--text-tertiary)',
+            border: '1px solid var(--border-subtle)',
           }}>
             {info.getValue()?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
           </div>
-          <span style={{ fontWeight: 500 }}>{info.getValue() || 'Unknown'}</span>
+          <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{info.getValue() || 'Unknown'}</span>
         </div>
       ),
     }),
@@ -237,11 +174,12 @@ export default function ReferralsPage() {
       cell: info => (
         <span style={{ 
           padding: '4px 10px',
-          background: 'var(--accent)',
+          background: 'var(--glass-bg)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: '6px',
           fontSize: '12px',
           fontWeight: 500,
-          color: 'var(--muted)',
+          color: 'var(--text-secondary)',
         }}>
           {info.getValue()}
         </span>
@@ -281,7 +219,7 @@ export default function ReferralsPage() {
     }),
     columnHelper.accessor('status', {
       header: 'Status',
-      cell: info => <StatusBadge status={info.getValue()} />,
+      cell: info => <StatusIndicator status={info.getValue()} size="sm" />,
     }),
     columnHelper.display({
       id: 'actions',
@@ -469,38 +407,18 @@ export default function ReferralsPage() {
           </select>
 
           {/* View toggle */}
-          <div style={{ 
-            display: 'flex', 
-            borderRadius: '8px', 
-            overflow: 'hidden',
-            border: '1px solid var(--border)',
-          }}>
+          <div className="view-toggle">
             <button 
               onClick={() => setViewMode('table')}
-              style={{
-                padding: '8px 12px',
-                background: viewMode === 'table' ? 'var(--accent)' : 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-              }}
+              className={`view-toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
             >
-              <List size={16} style={{ color: viewMode === 'table' ? 'var(--foreground)' : 'var(--muted)' }} />
+              <List size={16} />
             </button>
             <button 
               onClick={() => setViewMode('cards')}
-              style={{
-                padding: '8px 12px',
-                background: viewMode === 'cards' ? 'var(--accent)' : 'transparent',
-                border: 'none',
-                borderLeft: '1px solid var(--border)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-              }}
+              className={`view-toggle-btn ${viewMode === 'cards' ? 'active' : ''}`}
             >
-              <LayoutGrid size={16} style={{ color: viewMode === 'cards' ? 'var(--foreground)' : 'var(--muted)' }} />
+              <LayoutGrid size={16} />
             </button>
           </div>
         </div>

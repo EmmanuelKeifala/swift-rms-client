@@ -202,11 +202,15 @@ export default function ReferralDetailPage() {
       )}
 
       {referral.status === 'REJECTED' && referral.rejectionReason && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md flex gap-3 items-start">
-          <AlertTriangle className="text-red-500 mt-0.5 flex-shrink-0" size={20} />
+        <div className="mb-6 p-4 flex gap-3 items-start" style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.2)',
+          borderRadius: 'var(--radius-md)'
+        }}>
+          <AlertTriangle style={{ color: 'var(--danger)', marginTop: '2px', flexShrink: 0 }} size={20} />
           <div>
-            <h3 className="font-bold text-red-900 mb-1">Referral Rejected</h3>
-            <p className="text-red-800">{referral.rejectionReason}</p>
+            <h3 style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '4px' }}>Referral Rejected</h3>
+            <p style={{ color: 'var(--text-secondary)' }}>{referral.rejectionReason}</p>
           </div>
         </div>
       )}
@@ -304,18 +308,12 @@ export default function ReferralDetailPage() {
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
               {/* Response Time */}
-              <div style={{ 
-                padding: 'var(--space-3)', 
-                background: referral.responseTimeMinutes !== undefined && referral.responseTimeMinutes > 30 
-                  ? 'rgba(239, 68, 68, 0.1)' 
-                  : 'var(--accent)', 
-                borderRadius: 'var(--radius-md)' 
-              }}>
+              <div className="metric-card">
                 <div className="text-xs text-muted mb-1">Response Time</div>
                 <div className="font-bold" style={{ 
                   color: referral.responseTimeMinutes !== undefined && referral.responseTimeMinutes > 30 
-                    ? 'var(--error)' 
-                    : 'var(--foreground)'
+                    ? 'var(--danger)' 
+                    : 'var(--text-primary)'
                 }}>
                   {referral.responseTimeMinutes !== undefined 
                     ? `${referral.responseTimeMinutes} min` 
@@ -324,13 +322,9 @@ export default function ReferralDetailPage() {
               </div>
 
               {/* ETA Status */}
-              <div style={{ 
-                padding: 'var(--space-3)', 
-                background: 'var(--accent)', 
-                borderRadius: 'var(--radius-md)' 
-              }}>
+              <div className="metric-card">
                 <div className="text-xs text-muted mb-1">Expected Arrival</div>
-                <div className="font-bold">
+                <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
                   {referral.expectedArrival 
                     ? new Date(referral.expectedArrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     : 'Not set'}
@@ -338,22 +332,14 @@ export default function ReferralDetailPage() {
               </div>
 
               {/* Delay */}
-              <div style={{ 
-                padding: 'var(--space-3)', 
-                background: referral.delayMinutes !== undefined && referral.delayMinutes > 0
-                  ? referral.delayMinutes > 15 
-                    ? 'rgba(239, 68, 68, 0.1)' 
-                    : 'rgba(245, 158, 11, 0.1)'
-                  : 'var(--accent)', 
-                borderRadius: 'var(--radius-md)' 
-              }}>
+              <div className={`metric-card ${referral.delayMinutes !== undefined && referral.delayMinutes > 15 ? 'metric-card-danger' : referral.delayMinutes !== undefined && referral.delayMinutes > 0 ? 'metric-card-warning' : ''}`}>
                 <div className="text-xs text-muted mb-1">Delay</div>
                 <div className="font-bold" style={{ 
                   color: referral.delayMinutes !== undefined && referral.delayMinutes > 0
-                    ? referral.delayMinutes > 15 ? 'var(--error)' : 'var(--warning)'
+                    ? referral.delayMinutes > 15 ? 'var(--danger)' : 'var(--warning)'
                     : referral.delayMinutes !== undefined && referral.delayMinutes <= 0 
                       ? 'var(--success)' 
-                      : 'var(--foreground)'
+                      : 'var(--text-primary)'
                 }}>
                   {referral.delayMinutes !== undefined 
                     ? referral.delayMinutes <= 0 
@@ -364,13 +350,9 @@ export default function ReferralDetailPage() {
               </div>
 
               {/* Total Duration */}
-              <div style={{ 
-                padding: 'var(--space-3)', 
-                background: 'var(--accent)', 
-                borderRadius: 'var(--radius-md)' 
-              }}>
+              <div className="metric-card">
                 <div className="text-xs text-muted mb-1">Total Duration</div>
-                <div className="font-bold">
+                <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
                   {referral.totalDurationMinutes !== undefined 
                     ? referral.totalDurationMinutes >= 60 
                       ? `${Math.floor(referral.totalDurationMinutes / 60)}h ${referral.totalDurationMinutes % 60}m`
@@ -406,26 +388,22 @@ export default function ReferralDetailPage() {
               <AlertTriangle size={16} />
               Risk Assessment
             </h3>
-            <div style={{ 
+            <div className={`metric-card ${referral.dangerSignScore >= 7 ? 'metric-card-danger' : referral.dangerSignScore >= 4 ? 'metric-card-warning' : 'metric-card-success'}`} style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: 'var(--space-4)',
-              padding: 'var(--space-4)',
-              background: referral.dangerSignScore >= 7 ? 'var(--error-light)' : 
-                         referral.dangerSignScore >= 4 ? 'var(--warning-light)' : 'var(--success-light)',
-              borderRadius: 'var(--radius-md)',
               marginBottom: 'var(--space-4)'
             }}>
-              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700 }}>
+              <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {referral.dangerSignScore}/10
               </div>
-              <div className="text-sm">
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {referral.dangerSignScore >= 7 ? 'Critical Risk' : 
                  referral.dangerSignScore >= 4 ? 'Moderate Risk' : 'Low Risk'}
               </div>
             </div>
             {referral.dangerSigns?.length ? (
-              <ul style={{ paddingLeft: 'var(--space-4)', color: 'var(--muted)' }}>
+              <ul style={{ paddingLeft: 'var(--space-4)', color: 'var(--text-secondary)' }}>
                 {referral.dangerSigns.map((sign, i) => (
                   <li key={i} className="text-sm mb-1">{sign}</li>
                 ))}
@@ -457,41 +435,23 @@ export default function ReferralDetailPage() {
                 <div className="text-xs text-muted mb-2">Vital Signs</div>
                 <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
                   {referral.vitalSigns.bloodPressureSystolic && (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      padding: 'var(--space-3)', 
-                      background: 'var(--accent)', 
-                      borderRadius: 'var(--radius-md)',
-                      minWidth: 80
-                    }}>
-                      <Activity size={16} style={{ color: 'var(--muted)', marginBottom: 4 }} />
-                      <div className="font-semibold">{referral.vitalSigns.bloodPressureSystolic}/{referral.vitalSigns.bloodPressureDiastolic}</div>
+                    <div className="metric-card" style={{ textAlign: 'center', minWidth: 80 }}>
+                      <Activity size={16} style={{ color: 'var(--text-tertiary)', marginBottom: 4 }} />
+                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{referral.vitalSigns.bloodPressureSystolic}/{referral.vitalSigns.bloodPressureDiastolic}</div>
                       <div className="text-xs text-muted">BP</div>
                     </div>
                   )}
                   {referral.vitalSigns.heartRate && (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      padding: 'var(--space-3)', 
-                      background: 'var(--accent)', 
-                      borderRadius: 'var(--radius-md)',
-                      minWidth: 80
-                    }}>
-                      <Heart size={16} style={{ color: 'var(--error)', marginBottom: 4 }} />
-                      <div className="font-semibold">{referral.vitalSigns.heartRate}</div>
+                    <div className="metric-card" style={{ textAlign: 'center', minWidth: 80 }}>
+                      <Heart size={16} style={{ color: 'var(--danger)', marginBottom: 4 }} />
+                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{referral.vitalSigns.heartRate}</div>
                       <div className="text-xs text-muted">HR</div>
                     </div>
                   )}
                   {referral.vitalSigns.temperature && (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      padding: 'var(--space-3)', 
-                      background: 'var(--accent)', 
-                      borderRadius: 'var(--radius-md)',
-                      minWidth: 80
-                    }}>
+                    <div className="metric-card" style={{ textAlign: 'center', minWidth: 80 }}>
                       <Thermometer size={16} style={{ color: 'var(--warning)', marginBottom: 4 }} />
-                      <div className="font-semibold">{referral.vitalSigns.temperature}°C</div>
+                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{referral.vitalSigns.temperature}°C</div>
                       <div className="text-xs text-muted">Temp</div>
                     </div>
                   )}

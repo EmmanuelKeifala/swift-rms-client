@@ -78,8 +78,8 @@ export function DataTable<TData>({
                       textAlign: 'left',
                       fontWeight: 600,
                       fontSize: 'var(--text-xs)',
-                      color: 'var(--muted)',
-                      background: 'linear-gradient(180deg, var(--gray-50) 0%, rgba(244, 244, 245, 0.7) 100%)',
+                      color: 'var(--text-tertiary)',
+                      background: 'var(--bg-elevated)',
                       cursor: header.column.getCanSort() ? 'pointer' : 'default',
                       userSelect: 'none',
                       textTransform: 'uppercase',
@@ -90,11 +90,11 @@ export function DataTable<TData>({
                     onClick={header.column.getToggleSortingHandler()}
                     onMouseEnter={(e) => {
                       if (header.column.getCanSort()) {
-                        e.currentTarget.style.background = 'linear-gradient(180deg, var(--gray-100) 0%, rgba(244, 244, 245, 0.9) 100%)';
+                        e.currentTarget.style.background = 'var(--bg-surface)';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(180deg, var(--gray-50) 0%, rgba(244, 244, 245, 0.7) 100%)';
+                      e.currentTarget.style.background = 'var(--bg-elevated)';
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -158,7 +158,7 @@ export function DataTable<TData>({
                       style={{
                         padding: 'var(--space-4) var(--space-5)',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--foreground)',
+                        color: 'var(--text-primary)',
                       }}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

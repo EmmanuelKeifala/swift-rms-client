@@ -55,15 +55,15 @@ const getStatusBg = (status: string) => {
     case 'ADEQUATE':
     case 'FULLY_STAFFED':
     case 'AVAILABLE':
-      return 'rgba(34, 197, 94, 0.1)';
+      return 'rgba(34, 197, 94, 0.15)';
     case 'LOW':
     case 'UNDERSTAFFED':
-      return 'rgba(234, 179, 8, 0.1)';
+      return 'rgba(234, 179, 8, 0.15)';
     case 'CRITICAL':
     case 'UNAVAILABLE':
-      return 'rgba(239, 68, 68, 0.1)';
+      return 'rgba(239, 68, 68, 0.15)';
     default:
-      return 'var(--accent)';
+      return 'var(--bg-overlay)';
   }
 };
 
@@ -164,7 +164,7 @@ function FacilityReadinessCard({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: isExpanded ? 'var(--accent)' : 'transparent',
+          background: isExpanded ? 'var(--bg-overlay)' : 'transparent',
           transition: 'background 0.2s'
         }}
       >
@@ -207,12 +207,14 @@ function FacilityReadinessCard({
           <div className="flex items-center gap-2" style={{ display: isExpanded ? 'none' : 'flex' }}>
             <span style={{ 
               padding: '4px 10px', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)',
+              border: '1px solid var(--border-subtle)', 
               borderRadius: 'var(--radius-full)',
               fontSize: 'var(--text-xs)',
               display: 'flex',
               alignItems: 'center',
-              gap: 4
+              gap: 4,
+              color: 'var(--text-secondary)'
             }}>
               <BedDouble size={12} />
               {data.bedCapacityAvailable}/{data.bedCapacityTotal}
@@ -236,7 +238,7 @@ function FacilityReadinessCard({
             {/* Beds */}
             <div style={{ 
               padding: 'var(--space-3)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-md)' 
             }}>
               <div className="flex items-center gap-2 mb-2">
@@ -265,7 +267,7 @@ function FacilityReadinessCard({
             {/* Staff */}
             <div style={{ 
               padding: 'var(--space-3)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-md)' 
             }}>
               <div className="flex items-center gap-2 mb-2">
@@ -281,7 +283,7 @@ function FacilityReadinessCard({
             {/* Blood Bank */}
             <div style={{ 
               padding: 'var(--space-3)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-md)' 
             }}>
               <div className="flex items-center gap-2 mb-2">
@@ -297,7 +299,7 @@ function FacilityReadinessCard({
             {/* Oxygen */}
             <div style={{ 
               padding: 'var(--space-3)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-md)' 
             }}>
               <div className="flex items-center gap-2 mb-2">
@@ -460,7 +462,7 @@ function ReadinessDetailModal({
             {/* Beds */}
             <div style={{ 
               padding: 'var(--space-4)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-lg)',
               textAlign: 'center'
             }}>
@@ -490,7 +492,7 @@ function ReadinessDetailModal({
             {/* ICU */}
             <div style={{ 
               padding: 'var(--space-4)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-lg)',
               textAlign: 'center'
             }}>
@@ -507,7 +509,7 @@ function ReadinessDetailModal({
             {/* Staff */}
             <div style={{ 
               padding: 'var(--space-4)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-lg)',
               textAlign: 'center'
             }}>
@@ -522,7 +524,7 @@ function ReadinessDetailModal({
             {/* Theatre */}
             <div style={{ 
               padding: 'var(--space-4)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-lg)',
               textAlign: 'center'
             }}>
@@ -537,7 +539,7 @@ function ReadinessDetailModal({
             {/* Oxygen */}
             <div style={{ 
               padding: 'var(--space-4)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-lg)',
               textAlign: 'center'
             }}>
@@ -575,7 +577,7 @@ function ReadinessDetailModal({
                   <div key={blood.type} style={{ 
                     textAlign: 'center',
                     padding: 'var(--space-2)',
-                    background: 'var(--accent)',
+                    background: 'var(--bg-overlay)',
                     borderRadius: 'var(--radius-md)',
                     border: blood.units === 0 ? '1px solid var(--error)' : 'none'
                   }}>
@@ -628,7 +630,7 @@ function ReadinessDetailModal({
           {data.reportedBy && (
             <div className="flex items-center justify-between text-sm text-muted" style={{ 
               padding: 'var(--space-3)',
-              background: 'var(--accent)',
+              background: 'var(--bg-overlay)',
               borderRadius: 'var(--radius-md)'
             }}>
               <span className="flex items-center gap-2">
@@ -748,7 +750,7 @@ function SingleFacilityView({ data }: { data: FacilityReadiness }) {
           <div style={{ 
             marginTop: 'var(--space-3)',
             height: 6, 
-            background: 'var(--accent)', 
+            background: 'var(--bg-overlay)', 
             borderRadius: 'var(--radius-full)',
             overflow: 'hidden'
           }}>
@@ -878,7 +880,7 @@ function SingleFacilityView({ data }: { data: FacilityReadiness }) {
           {data.oxygenCylinders > 0 && (
             <div className="flex items-center gap-2 text-sm" style={{ 
               padding: 'var(--space-3)', 
-              background: 'var(--accent)', 
+              background: 'var(--bg-overlay)', 
               borderRadius: 'var(--radius-md)' 
             }}>
               <CheckCircle size={14} style={{ color: 'var(--success)' }} />
@@ -911,7 +913,7 @@ function SingleFacilityView({ data }: { data: FacilityReadiness }) {
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ 
             padding: 'var(--space-3)', 
-            background: 'var(--accent)', 
+            background: 'var(--bg-overlay)', 
             borderRadius: 'var(--radius-md)' 
           }}>
             <Syringe size={14} style={{ color: getStatusColor(data.bloodBankStatus) }} />
@@ -943,7 +945,7 @@ function SingleFacilityView({ data }: { data: FacilityReadiness }) {
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ 
             padding: 'var(--space-3)', 
-            background: 'var(--accent)', 
+            background: 'var(--bg-overlay)', 
             borderRadius: 'var(--radius-md)' 
           }}>
             {String(data.emergencySuppliesStatus).toUpperCase() === 'ADEQUATE' ? (
@@ -975,7 +977,7 @@ function SingleFacilityView({ data }: { data: FacilityReadiness }) {
             <div key={blood.type} style={{ 
               textAlign: 'center',
               padding: 'var(--space-4)',
-              background: 'var(--accent)',
+              background: 'var(--bg-overlay)',
               borderRadius: 'var(--radius-lg)',
               border: `2px solid ${blood.units === 0 ? 'var(--error)' : 'transparent'}`
             }}>
@@ -1018,7 +1020,7 @@ function SingleFacilityView({ data }: { data: FacilityReadiness }) {
 
       {/* Report Info Footer */}
       <div className="card" style={{ 
-        background: 'var(--accent)', 
+        background: 'var(--bg-overlay)', 
         padding: 'var(--space-4)',
         display: 'flex',
         justifyContent: 'space-between',

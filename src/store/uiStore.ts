@@ -24,6 +24,7 @@ interface UIState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleMobileSidebar: () => void;
   setMobileSidebarOpen: (open: boolean) => void;
+  toggleTheme: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setLoading: (loading: boolean) => void;
   addToast: (toast: Omit<Toast, 'id'>) => void;
@@ -33,7 +34,7 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
   sidebarMobileOpen: false,
-  theme: 'light',
+  theme: 'dark',
   isLoading: false,
   toasts: [],
 
@@ -49,7 +50,20 @@ export const useUIStore = create<UIState>((set) => ({
 
   setMobileSidebarOpen: (sidebarMobileOpen) => set({ sidebarMobileOpen }),
 
-  setTheme: (theme) => set({ theme }),
+  toggleTheme: () => set((state) => {
+    const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', newTheme);
+    }
+    return { theme: newTheme };
+  }),
+
+  setTheme: (theme) => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    set({ theme });
+  },
 
   setLoading: (isLoading) => set({ isLoading }),
 
