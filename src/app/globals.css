@@ -827,9 +827,12 @@ a:hover {
   background: linear-gradient(135deg, var(--glass-bg) 0%, transparent 100%);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
-  padding: var(--space-6);
+  padding: var(--space-5);
   overflow: hidden;
   transition: all var(--transition-base);
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
 }
 
 .stat-card::before {
@@ -880,11 +883,12 @@ a:hover {
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1;
+  margin-top: auto;
 }
 
 .stat-change {
