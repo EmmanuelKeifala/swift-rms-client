@@ -91,6 +91,7 @@ export default function PatientsPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
 
   const { data: listData, isLoading: listLoading, refetch, isFetching } = useQuery({
     queryKey: ['patients', 'list', page, limit],
@@ -104,7 +105,11 @@ export default function PatientsPage() {
     enabled: !!search,
   });
 
-  const patients: Patient[] = search ? (searchData || []) : (listData?.data || []);
+  const rawPatients: Patient[] = search ? (searchData || []) : (listData?.data || []);
+  // Apply gender filter
+  const patients = genderFilter 
+    ? rawPatients.filter(p => p.gender?.toUpperCase() === genderFilter)
+    : rawPatients;
   const isLoading = search ? searchLoading : listLoading;
   const meta = listData?.meta;
   const totalPages = meta?.totalPages || 1;
@@ -376,10 +381,23 @@ export default function PatientsPage() {
           background: 'var(--border)',
         }} />
 
-        <button className="btn btn-secondary btn-sm">
-          <Filter size={14} />
-          Filters
-        </button>
+        <select 
+          className="filter-select"
+          value={genderFilter}
+          onChange={(e) => setGenderFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-surface)',
+            fontSize: '14px',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="">All Genders</option>
+          <option value="MALE">Male</option>
+          <option value="FEMALE">Female</option>
+        </select>
 
         <button className="btn btn-secondary btn-sm">
           <Download size={14} />

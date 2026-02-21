@@ -1,43 +1,22 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { referralService } from '@/lib/api';
 import { Referral, ClinicianReviewRequest, ArrivalCondition } from '@/types';
-import { DataTable } from '@/components/ui';
 import { 
   Stethoscope,
-  Circle, 
   Clock,
   CheckCircle2,
   X,
   User,
   Building2,
   AlertTriangle,
-  ArrowRight,
-  Search
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  Activity
 } from 'lucide-react';
-
-function PriorityIndicator({ priority }: { priority: string }) {
-  const getColor = (p: string) => {
-    switch (p) {
-      case 'CRITICAL': return 'var(--danger)';
-      case 'HIGH': return 'var(--warning)';
-      case 'MEDIUM': return 'var(--info)';
-      case 'LOW': return 'var(--success)';
-      default: return 'var(--text-muted)';
-    }
-  };
-  
-  return (
-    <span className="flex items-center gap-2">
-      <Circle size={8} fill={getColor(priority)} color={getColor(priority)} />
-      <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{priority}</span>
-    </span>
-  );
-}
 
 function ColourCodeBadge({ code }: { code?: string }) {
   if (!code) return <span style={{ color: 'var(--text-muted)' }}>-</span>;
@@ -369,33 +348,16 @@ function ReviewModal({ referral, onClose, onSubmit, isLoading }: ReviewModalProp
 
 export default function ClinicianWorkflowPage() {
   const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
-  const [search, setSearch] = useState('');
-  const [colorFilter, setColorFilter] = useState('');
   const queryClient = useQueryClient();
 
   // Fetch referrals with ARRIVED status (awaiting clinician review)
   const { data, isLoading, error } = useQuery({
     queryKey: ['referrals', 'awaiting-review'],
     queryFn: () => referralService.list({ status: 'ARRIVED', limit: 50 }),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
   const allReferrals = data?.data || [];
-
-  // Filter referrals
-  const referrals = useMemo(() => {
-    return allReferrals.filter((r: Referral) => {
-      if (colorFilter && r.colourCode !== colorFilter) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        const matchCode = r.referralCode?.toLowerCase().includes(s);
-        const matchPatient = `${r.patient?.firstName || ''} ${r.patient?.lastName || ''}`.toLowerCase().includes(s);
-        const matchFacility = r.sendingFacility?.name?.toLowerCase().includes(s);
-        if (!matchCode && !matchPatient && !matchFacility) return false;
-      }
-      return true;
-    });
-  }, [allReferrals, colorFilter, search]);
 
   // Mutation for clinician review
   const reviewMutation = useMutation({
@@ -413,192 +375,182 @@ export default function ClinicianWorkflowPage() {
     }
   };
 
-  // Define columns
-  const columnHelper = createColumnHelper<Referral>();
-  
-  const columns = useMemo<ColumnDef<Referral, any>[]>(() => [
-    columnHelper.accessor('referralCode', {
-      header: 'Code',
-      cell: info => (
-        <Link href={`/referrals/${info.row.original.id}`} className="link font-medium">
-          {info.getValue()}
-        </Link>
-      ),
-    }),
-    columnHelper.accessor('priority', {
-      header: 'Priority',
-      cell: info => <PriorityIndicator priority={info.getValue()} />,
-    }),
-    columnHelper.accessor('colourCode', {
-      header: 'Triage',
-      cell: info => <ColourCodeBadge code={info.getValue()} />,
-    }),
-    columnHelper.accessor(row => `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(), {
-      id: 'patient',
-      header: 'Patient',
-      cell: info => (
-        <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-          {info.getValue() || 'Unknown'}
-        </span>
-      ),
-    }),
-    columnHelper.accessor('chiefComplaint', {
-      header: 'Chief Complaint',
-      cell: info => (
-        <span style={{ 
-          maxWidth: 180, 
-          display: 'block', 
-          overflow: 'hidden', 
-          textOverflow: 'ellipsis', 
-          whiteSpace: 'nowrap',
-          color: 'var(--text-secondary)',
-          fontSize: '13px'
-        }}>
-          {info.getValue()}
-        </span>
-      ),
-    }),
-    columnHelper.accessor('sendingFacility.name', {
-      header: 'From',
-      cell: info => (
-        <div className="flex items-center gap-2" style={{ maxWidth: 140 }}>
-          <Building2 size={12} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
-          <span style={{ 
-            color: 'var(--text-secondary)', 
-            overflow: 'hidden', 
-            textOverflow: 'ellipsis', 
-            whiteSpace: 'nowrap',
-            fontSize: '13px'
-          }}>
-            {info.getValue()}
-          </span>
-        </div>
-      ),
-    }),
-    columnHelper.accessor('actualArrival', {
-      header: 'Arrived',
-      cell: info => <TimeSinceArrival arrivedAt={info.getValue()} />,
-    }),
-    columnHelper.display({
-      id: 'actions',
-      cell: info => (
-        <button 
-          className="btn btn-primary btn-sm"
-          onClick={() => setSelectedReferral(info.row.original)}
-        >
-          <Stethoscope size={14} />
-          Review
-        </button>
-      ),
-    }),
-  ], []);
+  // Statistics
+  const stats = useMemo(() => {
+    const redCount = allReferrals.filter((r: Referral) => r.colourCode === 'RED').length;
+    const yellowCount = allReferrals.filter((r: Referral) => r.colourCode === 'YELLOW').length;
+    const greenCount = allReferrals.filter((r: Referral) => r.colourCode === 'GREEN').length;
+    const criticalCount = allReferrals.filter((r: Referral) => r.priority === 'CRITICAL').length;
+    const highCount = allReferrals.filter((r: Referral) => r.priority === 'HIGH').length;
+    
+    // Calculate average wait time
+    const now = new Date();
+    const avgWaitMinutes = allReferrals.length > 0
+      ? Math.floor(allReferrals.reduce((acc: number, r: Referral) => {
+          if (!r.actualArrival) return acc;
+          return acc + (now.getTime() - new Date(r.actualArrival).getTime()) / 60000;
+        }, 0) / allReferrals.length)
+      : 0;
+    
+    // Patients waiting > 2 hours
+    const longWaitCount = allReferrals.filter((r: Referral) => {
+      if (!r.actualArrival) return false;
+      const diffHours = (now.getTime() - new Date(r.actualArrival).getTime()) / 3600000;
+      return diffHours > 2;
+    }).length;
 
-  // Stats
-  const redCount = allReferrals.filter((r: Referral) => r.colourCode === 'RED').length;
-  const yellowCount = allReferrals.filter((r: Referral) => r.colourCode === 'YELLOW').length;
-  const greenCount = allReferrals.filter((r: Referral) => r.colourCode === 'GREEN').length;
+    return {
+      total: allReferrals.length,
+      red: redCount,
+      yellow: yellowCount,
+      green: greenCount,
+      critical: criticalCount,
+      high: highCount,
+      avgWaitMinutes,
+      longWaitCount,
+      redPercentage: allReferrals.length > 0 ? Math.round((redCount / allReferrals.length) * 100) : 0,
+    };
+  }, [allReferrals]);
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
+        <div className="spinner" style={{ margin: '0 auto' }} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
+        <AlertTriangle size={32} style={{ color: 'var(--danger)', margin: '0 auto var(--space-3)' }} />
+        <p style={{ color: 'var(--text-secondary)' }}>Failed to load clinician workflow data</p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="page-header">
+    <div style={{ padding: 'var(--space-6)' }}>
+      {/* Header */}
+      <div className="page-header" style={{ marginBottom: 'var(--space-6)' }}>
         <div>
           <h1 className="page-title">Clinician Workflow</h1>
           <p className="page-subtitle">
-            Review and validate arrived patients ({allReferrals.length} awaiting review)
+            Overview of patients awaiting clinical review
           </p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            {stats.total}
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            Awaiting Review
+          </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-5)' }}>
-        <div className="stat-card" onClick={() => setColorFilter(colorFilter === 'RED' ? '' : 'RED')} style={{ cursor: 'pointer', opacity: colorFilter && colorFilter !== 'RED' ? 0.5 : 1 }}>
+      {/* Priority Stats - First Row */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-4)' }}>
+        <div className="stat-card" style={{ borderLeft: '4px solid #f87171' }}>
           <div className="stat-header">
             <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.15)' }}>
               <AlertTriangle size={20} style={{ color: '#f87171' }} />
             </div>
           </div>
           <div className="stat-label">RED Priority</div>
-          <div className="stat-value" style={{ color: '#f87171' }}>{redCount}</div>
+          <div className="stat-value" style={{ color: '#f87171' }}>{stats.red}</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            {stats.redPercentage}% of total
+          </div>
         </div>
-        <div className="stat-card" onClick={() => setColorFilter(colorFilter === 'YELLOW' ? '' : 'YELLOW')} style={{ cursor: 'pointer', opacity: colorFilter && colorFilter !== 'YELLOW' ? 0.5 : 1 }}>
+        
+        <div className="stat-card" style={{ borderLeft: '4px solid #fbbf24' }}>
           <div className="stat-header">
             <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.15)' }}>
               <Clock size={20} style={{ color: '#fbbf24' }} />
             </div>
           </div>
           <div className="stat-label">YELLOW Priority</div>
-          <div className="stat-value" style={{ color: '#fbbf24' }}>{yellowCount}</div>
+          <div className="stat-value" style={{ color: '#fbbf24' }}>{stats.yellow}</div>
         </div>
-        <div className="stat-card" onClick={() => setColorFilter(colorFilter === 'GREEN' ? '' : 'GREEN')} style={{ cursor: 'pointer', opacity: colorFilter && colorFilter !== 'GREEN' ? 0.5 : 1 }}>
+        
+        <div className="stat-card" style={{ borderLeft: '4px solid #4ade80' }}>
           <div className="stat-header">
             <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.15)' }}>
               <CheckCircle2 size={20} style={{ color: '#4ade80' }} />
             </div>
           </div>
           <div className="stat-label">GREEN Priority</div>
-          <div className="stat-value" style={{ color: '#4ade80' }}>{greenCount}</div>
+          <div className="stat-value" style={{ color: '#4ade80' }}>{stats.green}</div>
         </div>
-        <div className="stat-card" onClick={() => setColorFilter('')} style={{ cursor: 'pointer', opacity: colorFilter ? 0.5 : 1 }}>
+        
+        <div className="stat-card" style={{ borderLeft: '4px solid var(--accent)' }}>
           <div className="stat-header">
             <div className="stat-icon" style={{ background: 'var(--accent-subtle)' }}>
-              <Stethoscope size={20} style={{ color: 'var(--accent-light)' }} />
+              <Activity size={20} style={{ color: 'var(--accent-light)' }} />
             </div>
           </div>
-          <div className="stat-label">Total Awaiting</div>
-          <div className="stat-value">{allReferrals.length}</div>
+          <div className="stat-label">Critical Priority</div>
+          <div className="stat-value" style={{ color: 'var(--accent-light)' }}>{stats.critical}</div>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="filter-bar">
-        <div className="search-box" style={{ flex: 1, minWidth: 250 }}>
-          <Search size={16} className="search-box-icon" />
-          <input
-            type="text"
-            className="search-box-input"
-            placeholder="Search by code, patient, or facility..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {/* Additional Stats - Second Row */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-6)' }}>
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+              <TrendingUp size={20} style={{ color: '#f87171' }} />
+            </div>
+          </div>
+          <div className="stat-label">High Priority</div>
+          <div className="stat-value">{stats.high}</div>
         </div>
-        <div className="filter-divider" />
-        <select 
-          className="filter-select"
-          value={colorFilter}
-          onChange={(e) => setColorFilter(e.target.value)}
-        >
-          <option value="">All Colours</option>
-          <option value="RED">RED</option>
-          <option value="YELLOW">YELLOW</option>
-          <option value="GREEN">GREEN</option>
-        </select>
+        
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'var(--bg-overlay)' }}>
+              <Clock size={20} style={{ color: 'var(--text-secondary)' }} />
+            </div>
+          </div>
+          <div className="stat-label">Avg. Wait Time</div>
+          <div className="stat-value">
+            {stats.avgWaitMinutes >= 60 
+              ? `${Math.floor(stats.avgWaitMinutes / 60)}h ${stats.avgWaitMinutes % 60}m`
+              : `${stats.avgWaitMinutes}m`
+            }
+          </div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+              <TrendingDown size={20} style={{ color: '#f87171' }} />
+            </div>
+          </div>
+          <div className="stat-label">Waiting &gt; 2 Hours</div>
+          <div className="stat-value" style={{ color: stats.longWaitCount > 0 ? '#f87171' : 'inherit' }}>
+            {stats.longWaitCount}
+          </div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'var(--accent-subtle)' }}>
+              <Calendar size={20} style={{ color: 'var(--accent-light)' }} />
+            </div>
+          </div>
+          <div className="stat-label">Today's Arrivals</div>
+          <div className="stat-value">
+            {allReferrals.filter((r: Referral) => {
+              if (!r.actualArrival) return false;
+              const arrival = new Date(r.actualArrival);
+              const today = new Date();
+              return arrival.toDateString() === today.toDateString();
+            }).length}
+          </div>
+        </div>
       </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <div style={{ padding: 'var(--space-12)', textAlign: 'center' }}>
-          <div className="spinner" style={{ margin: '0 auto' }} />
-        </div>
-      ) : error ? (
-        <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
-          <AlertTriangle size={32} style={{ color: 'var(--danger)', margin: '0 auto var(--space-3)' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>Failed to load referrals awaiting review</p>
-        </div>
-      ) : referrals.length === 0 ? (
-        <div className="card" style={{ padding: 'var(--space-10)', textAlign: 'center' }}>
-          <CheckCircle2 size={48} style={{ margin: '0 auto var(--space-4)', color: 'var(--success)' }} />
-          <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>All caught up!</h3>
-          <p style={{ color: 'var(--text-secondary)', margin: 'var(--space-2) 0 0' }}>
-            {colorFilter ? `No ${colorFilter} priority patients awaiting review.` : 'No patients are currently awaiting clinician review.'}
-          </p>
-        </div>
-      ) : (
-        <DataTable 
-          data={referrals} 
-          columns={columns}
-          emptyMessage="No patients awaiting review"
-        />
-      )}
 
       {/* Review Modal */}
       {selectedReferral && (
@@ -609,6 +561,6 @@ export default function ClinicianWorkflowPage() {
           isLoading={reviewMutation.isPending}
         />
       )}
-    </>
+    </div>
   );
 }

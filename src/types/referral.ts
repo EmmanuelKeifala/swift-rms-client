@@ -188,3 +188,30 @@ export interface ClinicianReviewRequest {
   arrivalConditionNotes?: string;
   notes?: string;
 }
+
+// Ambulance assignment request
+export interface AssignAmbulanceRequest {
+  ambulanceId: string;
+  crewLeadName?: string;
+  crewLeadPhone?: string;
+  estimatedArrival?: string;
+  notes?: string;
+}
+
+// Ambulance assignment response
+export interface AssignAmbulanceResponse {
+  referral: Referral;
+  nemsRequest: NEMSRequestSummary;
+  ambulance: AmbulanceSummary;
+  message: string;
+}
+
+// Ambulance summary for response
+export interface AmbulanceSummary {
+  id: string;
+  ambulanceId: string;
+  status: string;
+  facility?: FacilitySummary;
+  createdAt: string;
+  updatedAt: string;
+}

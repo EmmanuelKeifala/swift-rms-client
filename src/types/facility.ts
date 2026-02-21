@@ -97,11 +97,18 @@ export interface BulkUploadFacilityItem {
   level?: number;
   districtName?: string;
   districtCode?: string;
+  region?: string;
   address?: string;
   latitude?: number;
   longitude?: number;
   phone?: string;
   email?: string;
+  isActive?: boolean;
+  ownership?: string;
+  status?: string;
+  functional?: string;
+  managerName?: string;
+  services?: string[];
 }
 
 export interface BulkUploadError {

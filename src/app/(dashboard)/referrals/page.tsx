@@ -313,6 +313,52 @@ export default function ReferralsPage() {
         </div>
       </div>
 
+      {/* Stats Summary */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 'var(--space-5)' }}>
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'var(--accent-subtle)' }}>
+              <ArrowRight size={20} style={{ color: 'var(--accent-light)' }} />
+            </div>
+          </div>
+          <div className="stat-label">Total Referrals</div>
+          <div className="stat-value">{meta?.total?.toLocaleString() || referrals.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.15)' }}>
+              <Clock size={20} style={{ color: '#eab308' }} />
+            </div>
+          </div>
+          <div className="stat-label">Pending</div>
+          <div className="stat-value" style={{ color: '#eab308' }}>
+            {referrals.filter(r => r.status === 'PENDING' || r.status === 'ACCEPTED' || r.status === 'IN_TRANSIT').length}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.15)' }}>
+              <Filter size={20} style={{ color: '#ef4444' }} />
+            </div>
+          </div>
+          <div className="stat-label">Critical</div>
+          <div className="stat-value" style={{ color: '#ef4444' }}>
+            {referrals.filter(r => r.priority === 'CRITICAL').length}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.15)' }}>
+              <RefreshCw size={20} style={{ color: '#22c55e' }} />
+            </div>
+          </div>
+          <div className="stat-label">Completed</div>
+          <div className="stat-value" style={{ color: '#22c55e' }}>
+            {referrals.filter(r => r.status === 'COMPLETED').length}
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filters Bar */}
       <div className="card" style={{ 
         padding: '16px 20px', 
@@ -510,6 +556,136 @@ export default function ReferralsPage() {
             Try Again
           </button>
         </div>
+      ) : viewMode === 'cards' ? (
+        // Cards View
+        (() => {
+          // Filter referrals by search (case-insensitive)
+          const filteredReferrals = referrals.filter(r => {
+            if (!search) return true;
+            const searchLower = search.toLowerCase();
+            const patientName = `${r.patient?.firstName || ''} ${r.patient?.lastName || ''}`.toLowerCase();
+            const sendingFacility = r.sendingFacility?.name?.toLowerCase() || '';
+            const receivingFacility = r.receivingFacility?.name?.toLowerCase() || '';
+            return (
+              r.referralCode.toLowerCase().includes(searchLower) ||
+              patientName.includes(searchLower) ||
+              sendingFacility.includes(searchLower) ||
+              receivingFacility.includes(searchLower)
+            );
+          });
+
+          if (filteredReferrals.length === 0) {
+            return (
+              <div className="card" style={{ padding: '60px', textAlign: 'center' }}>
+                <div style={{ 
+                  width: '56px', 
+                  height: '56px', 
+                  borderRadius: '50%',
+                  background: 'var(--glass-bg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px'
+                }}>
+                  <ArrowRight size={24} style={{ color: 'var(--muted)' }} />
+                </div>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>No referrals found</div>
+                <p style={{ color: 'var(--muted)' }}>Create a new referral or adjust your filters</p>
+              </div>
+            );
+          }
+
+          return (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '16px',
+            }}>
+              {filteredReferrals.map(referral => (
+                <Link 
+                  key={referral.id} 
+                  href={`/referrals/${referral.id}`}
+                  className="card"
+                  style={{ 
+                    padding: '20px', 
+                    textDecoration: 'none',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '4px' }}>
+                        {referral.referralCode}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={10} />
+                        {new Date(referral.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <PriorityBadge priority={referral.priority} size="sm" />
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '50%',
+                      background: 'var(--glass-bg)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-tertiary)',
+                      border: '1px solid var(--border-subtle)',
+                    }}>
+                      {`${referral.patient?.firstName?.[0] || ''}${referral.patient?.lastName?.[0] || ''}`.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: '14px' }}>
+                        {referral.patient?.firstName} {referral.patient?.lastName}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                        {referral.referralType}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    padding: '10px 12px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '8px',
+                    marginBottom: '12px',
+                    fontSize: '13px',
+                  }}>
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Building2 size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {referral.sendingFacility?.name || 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+                    <ArrowRight size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Building2 size={12} style={{ color: 'var(--blue-500)', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {referral.receivingFacility?.name || 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <StatusIndicator status={referral.status} size="sm" />
+                </Link>
+              ))}
+            </div>
+          );
+        })()
       ) : (
         <DataTable 
           data={referrals} 

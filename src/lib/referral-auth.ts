@@ -8,6 +8,7 @@ import type { UserResponse } from '@/types/auth';
  * Authorization rules:
  * - SYSTEM_ADMIN: can modify any referral
  * - AMBULANCE_DISPATCH (NEMS users): can modify any referral
+ * - AMBULANCE_CREW: can modify any referral
  * - Users from the receiving facility: can modify incoming referrals
  * - Users from the sending facility: CANNOT modify their own referrals
  * 
@@ -18,13 +19,13 @@ import type { UserResponse } from '@/types/auth';
 export function canModifyReferral(user: User | UserResponse | null, referral: Referral): boolean {
   if (!user) return false;
   
-  // System admins can do anything
-  if (user.userType === 'SYSTEM_ADMIN') {
+  // System admins and NEMS can do anything
+  if (user.userType === 'SYSTEM_ADMIN' || user.userType === 'NEMS') {
     return true;
   }
-  
-  // NEMS users (ambulance dispatch) can modify any referral
-  if (user.userType === 'AMBULANCE_DISPATCH') {
+
+  // Ambulance dispatch and ambulance crew can modify any referral
+  if (user.userType === 'AMBULANCE_DISPATCH' || user.userType === 'AMBULANCE_CREW') {
     return true;
   }
   

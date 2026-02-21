@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { useAuthStore } from '@/store';
-import { referralService } from '@/lib/api';
+import { referralService, analyticsService, readinessService } from '@/lib/api';
 import { 
   ArrowDownLeft, 
   ArrowUpRight, 
@@ -17,7 +17,11 @@ import {
   CheckCircle2,
   Zap,
   Calendar,
-  Users
+  Users,
+  HeartPulse,
+  Bed,
+  Droplet,
+  Wind
 } from 'lucide-react';
 import { StatCard, DataTable, PriorityBadge, StatusIndicator } from '@/components/ui';
 
@@ -139,14 +143,77 @@ export default function DashboardPage() {
     queryFn: () => referralService.listOutgoing({ page: 1, limit: 10 }),
   });
 
+  // Admin and NEMS users get global stats from analytics API
+  const isAdminUser = user?.userType === 'SYSTEM_ADMIN' || user?.userType === 'NATIONAL_USER' || user?.userType === 'NEMS';
+  
+  const { data: analyticsData } = useQuery({
+    queryKey: ['analytics', 'referrals', 'overview'],
+    queryFn: () => analyticsService.getReferralAnalytics(),
+    enabled: isAdminUser, // Only fetch for admin users
+  });
+
+  // Fetch facility readiness for users with a facility
+  const facilityId = user?.facility?.id;
+  const { data: facilityReadiness } = useQuery({
+    queryKey: ['facility-readiness', facilityId],
+    queryFn: () => readinessService.getLatest(facilityId!),
+    enabled: !!facilityId, // Only fetch if user has a facility
+  });
+
   const referrals: Referral[] = referralsData?.data || [];
-  const totalCount = pendingReferrals?.length || 0;
+  
+  // Admin users see total from analytics, facility users see from pending referrals
+  const totalCount = isAdminUser 
+    ? (analyticsData?.summary?.totalReferrals || referralsData?.meta?.total || 0)
+    : (pendingReferrals?.length || 0);
   const incomingCount = incomingReferrals?.data?.length || 0;
   const outgoingCount = outgoingReferrals?.data?.length || 0;
   const pendingCount = pendingReferrals?.filter((r: any) => r.status === 'PENDING').length || 0;
   
   // Calculate critical count for urgency indicator
   const criticalCount = pendingReferrals?.filter((r: any) => r.priority === 'CRITICAL').length || 0;
+
+  // Calculate readiness score (percentage based on available resources)
+  const calculateReadinessScore = () => {
+    if (!facilityReadiness) return null;
+    
+    const r = facilityReadiness;
+    let score = 0;
+    let factors = 0;
+    
+    // Bed availability (weight: 25%)
+    if (r.bedCapacityTotal > 0) {
+      score += (r.bedCapacityAvailable / r.bedCapacityTotal) * 25;
+      factors++;
+    }
+    
+    // Resource statuses (weight: 75% total, 25% each)
+    const statusScore = (status: string) => {
+      switch (status) {
+        case 'ADEQUATE': case 'FULLY_STAFFED': return 100;
+        case 'LOW': case 'ADEQUATE': return 66;
+        case 'CRITICAL': case 'UNDERSTAFFED': return 33;
+        default: return 0;
+      }
+    };
+    
+    if (r.oxygenStatus) {
+      score += statusScore(r.oxygenStatus) * 0.25;
+      factors++;
+    }
+    if (r.staffingStatus) {
+      score += statusScore(r.staffingStatus) * 0.25;
+      factors++;
+    }
+    if (r.bloodBankStatus) {
+      score += statusScore(r.bloodBankStatus) * 0.25;
+      factors++;
+    }
+    
+    return factors > 0 ? Math.round(score) : null;
+  };
+  
+  const readinessScore = calculateReadinessScore();
 
   const columnHelper = createColumnHelper<Referral>();
   
@@ -328,6 +395,184 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* Facility Readiness Score - Only shown for users with a facility */}
+      {facilityId && facilityReadiness && (
+        <div style={{ marginBottom: '32px' }}>
+          <h2 style={{ 
+            fontSize: '16px', 
+            fontWeight: 600, 
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <HeartPulse size={18} style={{ color: 'var(--accent)' }} />
+            Facility Readiness
+            {readinessScore !== null && (
+              <span style={{
+                marginLeft: 'auto',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 600,
+                background: readinessScore >= 70 
+                  ? 'var(--success-subtle)' 
+                  : readinessScore >= 40 
+                    ? 'var(--warning-subtle)' 
+                    : 'var(--error-subtle)',
+                color: readinessScore >= 70 
+                  ? 'var(--success)' 
+                  : readinessScore >= 40 
+                    ? 'var(--warning)' 
+                    : 'var(--error)',
+              }}>
+                Score: {readinessScore}%
+              </span>
+            )}
+          </h2>
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--accent-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Bed size={20} style={{ color: 'var(--accent)' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '2px' }}>Bed Availability</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700 }}>
+                    {facilityReadiness.bedCapacityAvailable}/{facilityReadiness.bedCapacityTotal}
+                  </div>
+                </div>
+              </div>
+              <div style={{ 
+                height: '4px', 
+                background: 'var(--glass-bg)', 
+                borderRadius: '2px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${facilityReadiness.bedCapacityTotal > 0 
+                    ? (facilityReadiness.bedCapacityAvailable / facilityReadiness.bedCapacityTotal) * 100 
+                    : 0}%`,
+                  background: 'var(--accent)',
+                  borderRadius: '2px',
+                }} />
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: 'var(--radius-md)',
+                  background: facilityReadiness.oxygenStatus === 'ADEQUATE' 
+                    ? 'var(--success-subtle)' 
+                    : facilityReadiness.oxygenStatus === 'LOW' 
+                      ? 'var(--warning-subtle)' 
+                      : 'var(--error-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Wind size={20} style={{ 
+                    color: facilityReadiness.oxygenStatus === 'ADEQUATE' 
+                      ? 'var(--success)' 
+                      : facilityReadiness.oxygenStatus === 'LOW' 
+                        ? 'var(--warning)' 
+                        : 'var(--error)'
+                  }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '2px' }}>Oxygen</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, textTransform: 'capitalize' }}>
+                    {facilityReadiness.oxygenStatus?.toLowerCase() || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: 'var(--radius-md)',
+                  background: ['FULLY_STAFFED', 'ADEQUATE'].includes(String(facilityReadiness.staffingStatus))
+                    ? 'var(--success-subtle)' 
+                    : String(facilityReadiness.staffingStatus) === 'UNDERSTAFFED' || String(facilityReadiness.staffingStatus) === 'LOW'
+                      ? 'var(--warning-subtle)' 
+                      : 'var(--error-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Users size={20} style={{ 
+                    color: ['FULLY_STAFFED', 'ADEQUATE'].includes(String(facilityReadiness.staffingStatus))
+                      ? 'var(--success)' 
+                      : String(facilityReadiness.staffingStatus) === 'UNDERSTAFFED' || String(facilityReadiness.staffingStatus) === 'LOW'
+                        ? 'var(--warning)' 
+                        : 'var(--error)'
+                  }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '2px' }}>Staffing</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, textTransform: 'capitalize' }}>
+                    {String(facilityReadiness.staffingStatus || 'N/A').replace('_', ' ').toLowerCase()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: 'var(--radius-md)',
+                  background: facilityReadiness.bloodBankStatus === 'ADEQUATE' 
+                    ? 'var(--success-subtle)' 
+                    : facilityReadiness.bloodBankStatus === 'LOW' 
+                      ? 'var(--warning-subtle)' 
+                      : 'var(--error-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Droplet size={20} style={{ 
+                    color: facilityReadiness.bloodBankStatus === 'ADEQUATE' 
+                      ? 'var(--success)' 
+                      : facilityReadiness.bloodBankStatus === 'LOW' 
+                        ? 'var(--warning)' 
+                        : 'var(--error)'
+                  }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '2px' }}>Blood Bank</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, textTransform: 'capitalize' }}>
+                    {facilityReadiness.bloodBankStatus?.toLowerCase() || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: '12px', textAlign: 'right' }}>
+            <Link href="/readiness" className="btn btn-ghost btn-sm">
+              View full readiness report
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions - Grid of 4 actionable items */}
       <div style={{ marginBottom: '32px' }}>

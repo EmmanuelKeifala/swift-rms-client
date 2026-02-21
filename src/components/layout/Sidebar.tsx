@@ -24,7 +24,8 @@ import {
   LucideIcon,
   Stethoscope,
   ClipboardCheck,
-  Activity
+  Activity,
+  MapPin
 } from 'lucide-react';
 
 interface NavItem {
@@ -43,7 +44,7 @@ const navSections: NavSection[] = [
   {
     title: 'Overview',
     items: [
-      { label: 'Dashboard', href: '/', icon: LayoutDashboard, permission: 'DASHBOARD' },
+      { label: 'Overview', href: '/', icon: LayoutDashboard, permission: 'DASHBOARD' },
       { label: 'Referrals', href: '/referrals', icon: ClipboardList, permission: 'REFERRALS_VIEW' },
       { label: 'Patients', href: '/patients', icon: Users, permission: 'PATIENTS_VIEW' },
       { label: 'Facilities', href: '/facilities', icon: Building2, permission: 'FACILITIES_VIEW' },
@@ -53,7 +54,6 @@ const navSections: NavSection[] = [
     title: 'Operations',
     items: [
       { label: 'Readiness', href: '/readiness', icon: BedDouble, permission: 'READINESS_VIEW' },
-      { label: 'Counter-Referrals', href: '/counter-referrals', icon: RefreshCw, permission: 'COUNTER_REFERRALS' },
       { label: 'Clinician Workflow', href: '/clinician-workflow', icon: Stethoscope, permission: 'CLINICIAN_WORKFLOW' },
       { label: 'Triage', href: '/triage', icon: AlertTriangle, permission: 'TRIAGE' },
     ],
@@ -68,9 +68,10 @@ const navSections: NavSection[] = [
   {
     title: 'Analytics',
     items: [
+      { label: 'District Dashboard', href: '/district-dashboard', icon: Activity, permission: 'DISTRICT_DASHBOARD' },
+      { label: 'National Dashboard', href: '/national-dashboard', icon: MapPin, permission: 'NATIONAL_DASHBOARD' },
       { label: 'Dashboard', href: '/analytics', icon: BarChart3, permission: 'ANALYTICS' },
       { label: 'Reports', href: '/reports', icon: FileText, permission: 'REPORTS' },
-      { label: 'RC Tracker', href: '/rc-tracker', icon: ClipboardCheck, permission: 'RC_TRACKER' },
     ],
   },
   {
@@ -94,9 +95,13 @@ export function Sidebar() {
   const filteredSections = navSections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => 
-        !item.permission || hasPermission(userType, item.permission)
-      ),
+      items: section.items.filter((item) => {
+        // National users can only see the national dashboard
+        if (userType === 'NATIONAL_USER') {
+          return item.href === '/national-dashboard';
+        }
+        return !item.permission || hasPermission(userType, item.permission);
+      }),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -158,7 +163,7 @@ export function Sidebar() {
         <div className="sidebar-footer hide-mobile">
           <button className="sidebar-toggle" onClick={toggleSidebar}>
             {sidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
-            <span>Collapse</span>
+            {/* <span>Collapse</span> */}
           </button>
         </div>
       </aside>

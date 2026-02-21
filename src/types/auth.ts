@@ -34,6 +34,7 @@ export interface RegisterRequest {
   password: string;
   userType: UserType;
   facilityId?: string;
+  ambulanceId?: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -59,6 +60,7 @@ export interface UserResponse {
   userType: UserType;
   status: UserStatus;
   facility?: FacilitySummary;
+  ambulanceId?: string;
   avatarUrl?: string;
   createdAt: string;
   lastLoginAt?: string;

@@ -50,6 +50,12 @@ export default function FacilityDetailPage({ params }: Props) {
     queryFn: () => facilityService.get(id),
   });
 
+  const { data: referralCount } = useQuery({
+    queryKey: ['facility-referrals', id],
+    queryFn: () => facilityService.getReferralCount(id),
+    enabled: !!id,
+  });
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
@@ -118,9 +124,9 @@ export default function FacilityDetailPage({ params }: Props) {
         <div className="stat-card">
           <div className="flex items-center gap-2">
             <Activity size={16} style={{ color: 'var(--muted)' }} />
-            <div className="stat-label">Referrals This Month</div>
+            <div className="stat-label">Total Referrals</div>
           </div>
-          <div className="stat-value">-</div>
+          <div className="stat-value">{referralCount ?? 0}</div>
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2">

@@ -22,8 +22,12 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
-  XCircle
+  XCircle,
+  LayoutGrid,
+  List
 } from 'lucide-react';
+import { DataTable } from '@/components/ui';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 
 const facilitySchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -42,22 +46,71 @@ type FacilityFormData = z.infer<typeof facilitySchema>;
 
 // CSV Parser helper
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines = text.split('\n').filter(line => line.trim());
-  if (lines.length === 0) return { headers: [], rows: [] };
-  
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const rows: Record<string, string>[] = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-    const row: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      row[header] = values[index] || '';
-    });
-    rows.push(row);
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  const normalizedText = text.replace(/^\uFEFF/, '');
+
+  for (let i = 0; i < normalizedText.length; i += 1) {
+    const char = normalizedText[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        const nextChar = normalizedText[i + 1];
+        if (nextChar === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        row.push(field);
+        field = '';
+      } else if (char === '\n') {
+        row.push(field);
+        field = '';
+        if (row.some(value => value.trim() !== '')) {
+          rows.push(row);
+        }
+        row = [];
+      } else if (char !== '\r') {
+        field += char;
+      }
+    }
   }
-  
-  return { headers, rows };
+
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    if (row.some(value => value.trim() !== '')) {
+      rows.push(row);
+    }
+  }
+
+  if (rows.length === 0) return { headers: [], rows: [] };
+
+  const normalizeHeader = (header: string) =>
+    header.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const headers = rows[0].map(header => normalizeHeader(header));
+  const parsedRows: Record<string, string>[] = [];
+
+  for (let i = 1; i < rows.length; i += 1) {
+    const values = rows[i];
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      record[header] = values[index]?.trim() || '';
+    });
+    parsedRows.push(record);
+  }
+
+  return { headers, rows: parsedRows };
 }
 
 // Default column mappings for WHO AHO format
@@ -78,6 +131,8 @@ const defaultColumnMappings: Record<string, string> = {
 export default function FacilitiesPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [showModal, setShowModal] = useState(false);
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [csvData, setCsvData] = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null);
@@ -86,11 +141,12 @@ export default function FacilitiesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  const { data: facilities, isLoading } = useQuery({
-    queryKey: ['facilities', search],
-    queryFn: () => facilityService.search(search),
-    enabled: search.length >= 2 || search.length === 0,
+  const { data: facilitiesResponse, isLoading } = useQuery({
+    queryKey: ['facilities'],
+    queryFn: () => facilityService.list(),
   });
+
+  const facilities = facilitiesResponse?.data || [];
 
   const { data: districts = [] } = useQuery({
     queryKey: ['districts'],
@@ -140,26 +196,33 @@ export default function FacilitiesPage() {
       
       // Auto-detect column mappings with expanded matching
       const newMappings: Record<string, string> = {};
-      const lowerHeaders = parsed.headers.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const normalizeKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normalizedHeaders = parsed.headers.map(normalizeKey);
       
-      // Define aliases for each field
+      // Define aliases for each field - updated to match SLE Health Facility List CSV format
       const fieldAliases: Record<string, string[]> = {
-        name: ['name', 'facilityname', 'facility_name', 'hfname', 'healthfacilityname'],
-        facilityCode: ['facilitycode', 'code', 'facility_code', 'hfcode', 'id', 'facilityid'],
+        name: ['name', 'facilityname', 'facility_name', 'hfname', 'healthfacilityname', 'fac_name', 'facility'],
+        facilityCode: ['facilitycode', 'code', 'facility_code', 'hfcode', 'id', 'facilityid', 'fac_id'],
         facilityType: ['facilitytype', 'type', 'facility_type', 'hftype', 'category'],
         level: ['level', 'facilitylevel', 'tier'],
         districtName: ['districtname', 'district', 'district_name', 'lga', 'county'],
         districtCode: ['districtcode', 'district_code', 'lgacode'],
-        address: ['address', 'location', 'administrative_location', 'administrativelocation', 'physicaladdress'],
+        address: ['address', 'location', 'administrative_location', 'administrativelocation', 'physicaladdress', 'community', 'section', 'chiefdom', 'chiefdom2'],
         latitude: ['latitude', 'lat', 'y', 'geolat', 'geo_lat', 'ycoord', 'y_coord'],
         longitude: ['longitude', 'long', 'lng', 'lon', 'x', 'geolong', 'geo_long', 'xcoord', 'x_coord'],
-        phone: ['phone', 'telephone', 'tel', 'phonenumber', 'phone_number', 'contact'],
-        email: ['email', 'emailaddress', 'email_address', 'mail'],
+        phone: ['phone', 'telephone', 'tel', 'phonenumber', 'phone_number', 'contact', 'fac_phone', 'inchargecontact', 'inchargecontact', 'facinchargecontact'],
+        email: ['email', 'emailaddress', 'email_address', 'mail', 'fac_email'],
+        ownership: ['ownership', 'owner', 'authority'],
+        status: ['status'],
+        functional: ['functional'],
+        managerName: ['managername', 'manager_name', 'facinchargemanagername', 'incharge', 'manager', 'facinchargemanagername'],
+        region: ['region'],
       };
       
       Object.entries(fieldAliases).forEach(([field, aliases]) => {
-        const matchIndex = lowerHeaders.findIndex(h => 
-          aliases.some(alias => h === alias || h.includes(alias) || alias.includes(h))
+        const normalizedAliases = aliases.map(normalizeKey);
+        const matchIndex = normalizedHeaders.findIndex(h =>
+          normalizedAliases.some(alias => h === alias || h.includes(alias) || alias.includes(h))
         );
         if (matchIndex !== -1) {
           newMappings[field] = parsed.headers[matchIndex];
@@ -177,19 +240,53 @@ export default function FacilitiesPage() {
   const handleBulkUpload = useCallback(() => {
     if (!csvData) return;
 
-    const facilities: BulkUploadFacilityItem[] = csvData.rows.map(row => ({
-      name: row[columnMappings.name] || '',
-      facilityCode: row[columnMappings.facilityCode] || '',
-      facilityType: row[columnMappings.facilityType] || 'PHU',
-      level: parseInt(row[columnMappings.level]) || undefined,
-      districtName: row[columnMappings.districtName] || '',
-      districtCode: row[columnMappings.districtCode] || '',
-      address: row[columnMappings.address] || '',
-      latitude: row[columnMappings.latitude] ? parseFloat(row[columnMappings.latitude]) : undefined,
-      longitude: row[columnMappings.longitude] ? parseFloat(row[columnMappings.longitude]) : undefined,
-      phone: row[columnMappings.phone] || '',
-      email: row[columnMappings.email] || '',
-    }));
+    // Map SLE CSV facility types to system types
+    const mapFacilityType = (type: string): string => {
+      const typeMap: Record<string, string> = {
+        'MCHP': 'PHU',
+        'CHP': 'PHU',
+        'CHC': 'PHU',
+        'Clinic': 'PHU',
+        'Hospital': 'DISTRICT_HOSPITAL',
+        'Government Hospital': 'DISTRICT_HOSPITAL',
+        'Private Hospital': 'DISTRICT_HOSPITAL',
+        'Mission Hospital': 'DISTRICT_HOSPITAL',
+      };
+      return typeMap[type] || type || 'PHU';
+    };
+
+    const facilities: BulkUploadFacilityItem[] = csvData.rows.map(row => {
+      // Determine if facility is active based on status/functional fields
+      const status = row[columnMappings.status] || '';
+      const functional = row[columnMappings.functional] || '';
+      const isActive = status.toLowerCase() !== 'closed' && functional.toLowerCase() === 'functional';
+      
+      // Build services array based on facility type and ownership
+      const services: string[] = [];
+      const ownership = row[columnMappings.ownership] || '';
+      if (ownership) services.push(ownership);
+      
+      return {
+        name: row[columnMappings.name] || '',
+        facilityCode: row[columnMappings.facilityCode] || '',
+        facilityType: mapFacilityType(row[columnMappings.facilityType] || ''),
+        level: parseInt(row[columnMappings.level]) || undefined,
+        districtName: row[columnMappings.districtName] || '',
+        districtCode: row[columnMappings.districtCode] || '',
+        region: row[columnMappings.region] || '',
+        address: row[columnMappings.address] || '',
+        latitude: row[columnMappings.latitude] ? parseFloat(row[columnMappings.latitude]) : undefined,
+        longitude: row[columnMappings.longitude] ? parseFloat(row[columnMappings.longitude]) : undefined,
+        phone: row[columnMappings.phone] || '',
+        email: row[columnMappings.email] || '',
+        isActive,
+        ownership: row[columnMappings.ownership] || '',
+        status,
+        functional,
+        managerName: row[columnMappings.managerName] || '',
+        services,
+      };
+    });
 
     bulkUploadMutation.mutate(facilities);
   }, [csvData, columnMappings, bulkUploadMutation]);
@@ -224,9 +321,78 @@ export default function FacilitiesPage() {
     resetBulkUpload();
   }, [resetBulkUpload]);
 
-  const filteredFacilities = facilities?.filter(f => 
-    !typeFilter || f.type === typeFilter
-  ) || [];
+  // Case-insensitive filtering
+  const filteredFacilities = facilities.filter(f => {
+    const searchLower = search.toLowerCase();
+    const matchesSearch = !search || 
+      f.name?.toLowerCase().includes(searchLower) ||
+      f.facilityCode?.toLowerCase().includes(searchLower) ||
+      f.district?.name?.toLowerCase().includes(searchLower);
+    const matchesType = !typeFilter || f.type === typeFilter || f.facilityType === typeFilter;
+    const matchesDistrict = !districtFilter || f.district?.id === districtFilter;
+    return matchesSearch && matchesType && matchesDistrict;
+  });
+
+  // Table columns
+  const columnHelper = createColumnHelper<typeof facilities[0]>();
+  const columns: ColumnDef<typeof facilities[0], any>[] = [
+    columnHelper.accessor('name', {
+      header: 'Name',
+      cell: info => (
+        <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('facilityCode', {
+      header: 'Code',
+      cell: info => <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>{info.getValue()}</span>,
+    }),
+    columnHelper.accessor(row => row.type || row.facilityType, {
+      id: 'facilityType',
+      header: 'Type',
+      cell: info => (
+        <span style={{
+          padding: '2px 8px',
+          background: 'var(--bg-overlay)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: '11px',
+          textTransform: 'uppercase'
+        }}>
+          {String(info.getValue() || 'PHU').replace(/_/g, ' ')}
+        </span>
+      ),
+    }),
+    columnHelper.accessor(row => row.district?.name, {
+      id: 'district',
+      header: 'District',
+      cell: info => info.getValue() || 'Unknown',
+    }),
+    columnHelper.accessor('level', {
+      header: 'Level',
+      cell: info => `Level ${info.getValue() || 1}`,
+    }),
+    columnHelper.accessor('isActive', {
+      header: 'Status',
+      cell: info => (
+        <span style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '12px',
+          color: info.getValue() ? 'var(--success)' : 'var(--text-tertiary)'
+        }}>
+          <span style={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: info.getValue() ? 'var(--success)' : 'var(--text-muted)'
+          }} />
+          {info.getValue() ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    }),
+  ];
 
   const facilityTypes: FacilityType[] = ['PHU', 'DISTRICT_HOSPITAL', 'REGIONAL_HOSPITAL', 'TERTIARY_HOSPITAL'];
 
@@ -242,6 +408,10 @@ export default function FacilitiesPage() {
     { key: 'longitude', label: 'Longitude', required: false },
     { key: 'phone', label: 'Phone', required: false },
     { key: 'email', label: 'Email', required: false },
+    { key: 'ownership', label: 'Ownership', required: false },
+    { key: 'status', label: 'Status', required: false },
+    { key: 'functional', label: 'Functional', required: false },
+    { key: 'managerName', label: 'Manager Name', required: false },
   ];
 
   return (
@@ -269,7 +439,7 @@ export default function FacilitiesPage() {
           <input
             type="text"
             className="search-box-input"
-            placeholder="Search facilities by name or district..."
+            placeholder="Search facilities by name, code or district..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -285,9 +455,39 @@ export default function FacilitiesPage() {
         >
           <option value="">All Types</option>
           {facilityTypes.map(type => (
-            <option key={type} value={type}>{type}</option>
+            <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>
           ))}
         </select>
+
+        <select 
+          className="filter-select"
+          value={districtFilter}
+          onChange={(e) => setDistrictFilter(e.target.value)}
+        >
+          <option value="">All Districts</option>
+          {districts.map((d: District) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
+
+        <div className="filter-divider" />
+
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            className={`btn btn-icon btn-sm ${viewMode === 'cards' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('cards')}
+            title="Cards view"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            className={`btn btn-icon btn-sm ${viewMode === 'table' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('table')}
+            title="Table view"
+          >
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -730,7 +930,7 @@ export default function FacilitiesPage() {
                     Drop your CSV file here or click to browse
                   </p>
                   <p style={{ color: 'var(--muted)', fontSize: 'var(--text-sm)' }}>
-                    Upload facility data from WHO AHO Master Facility List or similar CSV format
+                    Upload facility data from SLE Health Facility List CSV (e.g., &quot;Copy of SLE_Health Facility List Jan. 2024.xlsx - Master List.csv&quot;)
                   </p>
                   <button 
                     type="button" 
@@ -799,8 +999,10 @@ export default function FacilitiesPage() {
 
                   {/* Preview */}
                   <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ fontWeight: 500, marginBottom: 'var(--space-2)' }}>Preview (first 3 rows)</div>
-                    <div style={{ 
+                    <div style={{ fontWeight: 500, marginBottom: 'var(--space-2)' }}>
+                      Preview (first 3 rows, all columns)
+                    </div>
+                    <div style={{
                       overflow: 'auto',
                       border: '1px solid var(--border)',
                       borderRadius: 'var(--radius-md)',
@@ -809,19 +1011,24 @@ export default function FacilitiesPage() {
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr style={{ background: 'var(--accent)' }}>
-                            <th style={{ padding: 'var(--space-2)', textAlign: 'left', fontWeight: 500 }}>Name</th>
-                            <th style={{ padding: 'var(--space-2)', textAlign: 'left', fontWeight: 500 }}>Code</th>
-                            <th style={{ padding: 'var(--space-2)', textAlign: 'left', fontWeight: 500 }}>Type</th>
-                            <th style={{ padding: 'var(--space-2)', textAlign: 'left', fontWeight: 500 }}>District</th>
+                            {csvData.headers.map(header => (
+                              <th
+                                key={header}
+                                style={{ padding: 'var(--space-2)', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}
+                              >
+                                {header || '(Unnamed)'}
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
                           {csvData.rows.slice(0, 3).map((row, i) => (
                             <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                              <td style={{ padding: 'var(--space-2)' }}>{row[columnMappings.name] || '-'}</td>
-                              <td style={{ padding: 'var(--space-2)' }}>{row[columnMappings.facilityCode] || '-'}</td>
-                              <td style={{ padding: 'var(--space-2)' }}>{row[columnMappings.facilityType] || '-'}</td>
-                              <td style={{ padding: 'var(--space-2)' }}>{row[columnMappings.districtName] || row[columnMappings.districtCode] || '-'}</td>
+                              {csvData.headers.map(header => (
+                                <td key={`${i}-${header}`} style={{ padding: 'var(--space-2)' }}>
+                                  {row[header] || '-'}
+                                </td>
+                              ))}
                             </tr>
                           ))}
                         </tbody>

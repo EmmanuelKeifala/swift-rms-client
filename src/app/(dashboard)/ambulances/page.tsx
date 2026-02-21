@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ambulanceService, facilityService } from '@/lib/api';
+import { ambulanceService, facilityService, userService } from '@/lib/api';
 import type { Ambulance, CreateAmbulanceRequest, AmbulanceStatus } from '@/lib/api/ambulances';
 import { 
   Ambulance as AmbulanceIcon, 
@@ -20,8 +20,20 @@ import {
   AlertOctagon,
   Search,
   Settings,
-  Users
+  Users,
+  List,
+  Map
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const AmbulanceMap = dynamic(() => import('@/components/AmbulanceMap'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="spinner" />
+    </div>
+  ),
+});
 
 const ambulanceSchema = z.object({
   ambulanceId: z.string().min(1, 'Ambulance ID is required').max(50),
@@ -29,10 +41,21 @@ const ambulanceSchema = z.object({
   status: z.enum(['AVAILABLE', 'ON_MISSION', 'MAINTENANCE', 'OUT_OF_SERVICE']).optional(),
   phone: z.string().optional(),
   equipment: z.string().optional(),
-  crewMembers: z.string().optional(),
 });
 
 type AmbulanceFormData = z.infer<typeof ambulanceSchema>;
+
+interface CrewCandidate {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  ambulanceId?: string | null;
+  facility?: {
+    id: string;
+    name: string;
+  };
+}
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { bg: string; color: string; border: string; icon: React.ReactNode; label: string }> = {
@@ -90,6 +113,8 @@ export default function AmbulancesPage() {
   const [showModal, setShowModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [selectedCrewIds, setSelectedCrewIds] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
   // Fetch ambulances
@@ -110,8 +135,16 @@ export default function AmbulancesPage() {
     queryFn: () => facilityService.list({ limit: 500 }),
   });
 
+  const { data: crewData, isLoading: crewLoading } = useQuery({
+    queryKey: ['crew', 'unassigned'],
+    queryFn: () => userService.list({ userType: 'AMBULANCE_CREW', limit: 500, status: 'ACTIVE' }),
+    enabled: showModal,
+  });
+
   const ambulances = ambulancesData?.data || [];
   const facilities = facilitiesData?.data || [];
+  const crewCandidates = (crewData?.data || []) as CrewCandidate[];
+  const availableCrew = crewCandidates.filter((member) => !member.ambulanceId);
 
   const filteredAmbulances = useMemo(() => {
     return ambulances.filter((amb: Ambulance) => {
@@ -138,19 +171,26 @@ export default function AmbulancesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ambulances'] });
       queryClient.invalidateQueries({ queryKey: ['ambulance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['crew', 'unassigned'] });
       setShowModal(false);
       reset();
+      setSelectedCrewIds([]);
     },
   });
 
   const onSubmit = (data: AmbulanceFormData) => {
+    const selectedCrew = availableCrew.filter((member) => selectedCrewIds.includes(member.id));
+    const crewMembers = selectedCrew
+      .map((member) => `${member.firstName} ${member.lastName}`.trim())
+      .filter(Boolean);
+    
     const request: CreateAmbulanceRequest = {
       ambulanceId: data.ambulanceId,
       facilityId: data.facilityId || undefined,
       status: data.status as AmbulanceStatus,
       phone: data.phone || undefined,
       equipment: data.equipment ? data.equipment.split(',').map(e => e.trim()).filter(Boolean) : undefined,
-      crewMembers: data.crewMembers ? data.crewMembers.split(',').map(c => c.trim()).filter(Boolean) : undefined,
+      crewMembers: crewMembers.length > 0 ? crewMembers : undefined,
     };
     createMutation.mutate(request);
   };
@@ -164,7 +204,13 @@ export default function AmbulancesPage() {
           <h1 className="page-title">Ambulances</h1>
           <p className="page-subtitle">Fleet management and tracking</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setShowModal(true);
+            setSelectedCrewIds([]);
+          }}
+        >
           <Plus size={16} />
           Add Ambulance
         </button>
@@ -243,6 +289,25 @@ export default function AmbulancesPage() {
           <option value="MAINTENANCE">Maintenance</option>
           <option value="OUT_OF_SERVICE">Out of Service</option>
         </select>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-1)' }}>
+          <button
+            className={`btn btn-sm ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('list')}
+            title="List View"
+          >
+            <List size={16} />
+            List
+          </button>
+          <button
+            className={`btn btn-sm ${viewMode === 'map' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('map')}
+            title="Map View"
+          >
+            <Map size={16} />
+            Map
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -277,6 +342,172 @@ export default function AmbulancesPage() {
               Add Ambulance
             </button>
           )}
+        </div>
+      ) : viewMode === 'map' ? (
+        <div className="dashboard-grid">
+          <div className="col-8">
+            <AmbulanceMap 
+              ambulances={filteredAmbulances} 
+              onAmbulanceClick={(amb) => {
+                setSelected(amb);
+              }}
+              isLoading={isLoading}
+            />
+          </div>
+          <div className="col-4">
+            <div className="card" style={{ position: 'sticky', top: 'var(--space-5)' }}>
+              <h3 className="card-title mb-4">
+                <Settings size={16} />
+                Ambulance Details
+              </h3>
+              {selected ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <div style={{ 
+                      width: 56, 
+                      height: 56, 
+                      background: 'var(--accent-subtle)',
+                      borderRadius: 'var(--radius-lg)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <AmbulanceIcon size={28} style={{ color: 'var(--accent-light)' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {selected.ambulanceId}
+                      </div>
+                      <StatusBadge status={selected.status} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-4)' }}>
+                    {selected.phone && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Phone
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone size={14} style={{ color: 'var(--text-tertiary)' }} />
+                          <a href={`tel:${selected.phone}`} style={{ color: 'var(--accent-light)', fontSize: '14px' }}>{selected.phone}</a>
+                        </div>
+                      </div>
+                    )}
+                    {selected.facility && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Assigned Facility
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
+                          <span style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{selected.facility.name}</span>
+                        </div>
+                      </div>
+                    )}
+                    {selected.crewMembers && selected.crewMembers.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Crew Members
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {selected.crewMembers.map((crew, i) => (
+                            <span key={i} style={{
+                              padding: '4px 10px',
+                              background: 'var(--bg-overlay)',
+                              border: '1px solid var(--border-subtle)',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: '12px',
+                              color: 'var(--text-secondary)'
+                            }}>
+                              {crew}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selected.equipment && selected.equipment.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Equipment
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {selected.equipment.map((equip, i) => (
+                            <span key={i} style={{
+                              padding: '4px 10px',
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              color: '#60a5fa',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: '12px'
+                            }}>
+                              {equip}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selected.latitude && selected.longitude && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          GPS Location
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            {Number(selected.latitude).toFixed(5)}, {Number(selected.longitude).toFixed(5)}
+                          </span>
+                        </div>
+                        <a 
+                          href={`https://www.google.com/maps?q=${selected.latitude},${selected.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ 
+                            fontSize: '12px', 
+                            color: 'var(--accent-light)', 
+                            marginTop: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          View on Google Maps →
+                        </a>
+                      </div>
+                    )}
+                    {selected.lastLocationUpdate && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          Last Updated
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {new Date(selected.lastLocationUpdate).toLocaleString()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+                  <div style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'var(--bg-overlay)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto var(--space-3)'
+                  }}>
+                    <AmbulanceIcon size={24} style={{ color: 'var(--text-muted)' }} />
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    Click on an ambulance marker to view details
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="dashboard-grid">
@@ -607,14 +838,15 @@ export default function AmbulancesPage() {
 
                 <div style={{ marginBottom: 'var(--space-4)' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
-                    Assigned Facility
+                    Assigned Facility *
                   </label>
                   <select className="form-input" {...register('facilityId')}>
                     <option value="">-- Select Facility --</option>
-                    {facilities.map((f: { id: string; name: string }) => (
+                    {facilities.map((f: { id: string; name: string; latitude?: number; longitude?: number }) => (
                       <option key={f.id} value={f.id}>{f.name}</option>
                     ))}
                   </select>
+                  <p className="form-hint">The ambulance's GPS location will be set to this facility's coordinates.</p>
                 </div>
 
                 <div style={{ marginBottom: 'var(--space-4)' }}>
@@ -633,12 +865,69 @@ export default function AmbulancesPage() {
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
                     Crew Members
                   </label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Names (comma separated)"
-                    {...register('crewMembers')}
-                  />
+                  {crewLoading ? (
+                    <div className="flex items-center gap-2" style={{
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: 'var(--space-3)',
+                      background: 'var(--bg-subtle)'
+                    }}>
+                      <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                      <span className="text-sm text-muted">Loading crew members...</span>
+                    </div>
+                  ) : availableCrew.length === 0 ? (
+                    <div className="text-sm text-muted" style={{ padding: 'var(--space-3) 0' }}>
+                      No unassigned crew members available.
+                    </div>
+                  ) : (
+                    <div style={{
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: 'var(--space-3)',
+                      display: 'grid',
+                      gap: 'var(--space-2)',
+                      maxHeight: 200,
+                      overflow: 'auto'
+                    }}>
+                      {availableCrew.map((member) => {
+                        const fullName = `${member.firstName} ${member.lastName}`.trim();
+                        const isSelected = selectedCrewIds.includes(member.id);
+                        return (
+                          <label
+                            key={member.id}
+                            className="flex items-start gap-2"
+                            style={{
+                              padding: 'var(--space-2)',
+                              borderRadius: 'var(--radius-md)',
+                              background: isSelected ? 'var(--accent-subtle)' : 'transparent',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedCrewIds((prev) =>
+                                  prev.includes(member.id)
+                                    ? prev.filter((id) => id !== member.id)
+                                    : [...prev, member.id]
+                                );
+                              }}
+                              style={{ marginTop: 3 }}
+                            />
+                            <div>
+                              <div className="font-medium" style={{ fontSize: '13px' }}>{fullName}</div>
+                              <div className="text-xs text-muted">
+                                {member.phone}
+                                {member.facility?.name ? ` • ${member.facility.name}` : ''}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className="form-hint">Only crew members not already assigned to an ambulance are listed.</p>
                 </div>
               </div>
 

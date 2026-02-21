@@ -16,7 +16,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { userService, facilityService } from '@/lib/api';
+import { userService, facilityService, ambulanceService } from '@/lib/api';
 import type { CreateUserRequest } from '@/types/user';
 import { UserType } from '@/types';
 import { 
@@ -43,6 +43,7 @@ const userSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   userType: z.string().min(1, 'Role is required'),
   facilityId: z.string().optional(),
+  ambulanceId: z.string().optional().or(z.literal('')),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -69,10 +70,12 @@ function RoleBadge({ role }: { role: string }) {
     HOSPITAL_DESK: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: 'rgba(59, 130, 246, 0.3)' },
     REFERRAL_COORDINATOR: { bg: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: 'rgba(34, 197, 94, 0.3)' },
     AMBULANCE_DISPATCH: { bg: 'rgba(234, 179, 8, 0.15)', color: '#fbbf24', border: 'rgba(234, 179, 8, 0.3)' },
+    AMBULANCE_CREW: { bg: 'rgba(125, 211, 252, 0.15)', color: '#7dd3fc', border: 'rgba(125, 211, 252, 0.3)' },
     DISTRICT_HEALTH: { bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.3)' },
     NATIONAL_USER: { bg: 'var(--bg-overlay)', color: 'var(--text-secondary)', border: 'var(--border-subtle)' },
     PHU_STAFF: { bg: 'rgba(20, 184, 166, 0.15)', color: '#2dd4bf', border: 'rgba(20, 184, 166, 0.3)' },
     SPECIALIST: { bg: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', border: 'rgba(236, 72, 153, 0.3)' },
+    NEMS: { bg: 'rgba(249, 115, 22, 0.15)', color: '#fb923c', border: 'rgba(249, 115, 22, 0.3)' },
   };
   const c = colors[role] || colors.NATIONAL_USER;
   return (
@@ -110,6 +113,11 @@ export default function AdminUsersPage() {
     enabled: facilitySearch.length >= 2,
   });
 
+  const { data: ambulancesData } = useQuery({
+    queryKey: ['ambulances', 'list'],
+    queryFn: () => ambulanceService.list({ limit: 200 }),
+  });
+
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
   });
@@ -119,6 +127,8 @@ export default function AdminUsersPage() {
       ...data,
       phone: `+232${data.phone}`,
       email: data.email || undefined,
+      facilityId: data.facilityId || undefined,
+      ambulanceId: data.ambulanceId || undefined,
       userType: data.userType as UserType,
     }),
     onSuccess: () => {
@@ -129,19 +139,23 @@ export default function AdminUsersPage() {
   });
 
   const users: User[] = usersData?.data || [];
+  const ambulances = ambulancesData?.data || [];
 
   const roles: UserType[] = [
-    'SYSTEM_ADMIN', 
-    'HOSPITAL_DESK', 
-    'REFERRAL_COORDINATOR', 
-    'AMBULANCE_DISPATCH', 
-    'DISTRICT_HEALTH', 
+    'SYSTEM_ADMIN',
+    'HOSPITAL_DESK',
+    'REFERRAL_COORDINATOR',
+    'AMBULANCE_DISPATCH',
+    'AMBULANCE_CREW',
+    'DISTRICT_HEALTH',
     'NATIONAL_USER',
     'PHU_STAFF',
-    'SPECIALIST'
+    'SPECIALIST',
+    'NEMS'
   ];
 
   const selectedFacilityId = watch('facilityId');
+  const selectedUserType = watch('userType');
 
   // Define columns
   const columnHelper = createColumnHelper<User>();
@@ -508,6 +522,21 @@ export default function AdminUsersPage() {
                   </select>
                   {errors.userType && <span className="form-error">{errors.userType.message}</span>}
                 </div>
+
+                {selectedUserType === 'AMBULANCE_CREW' && (
+                  <div className="form-group">
+                    <label className="form-label">Assigned Ambulance (Optional)</label>
+                    <select className="form-input" {...register('ambulanceId')}>
+                      <option value="">-- Select Ambulance --</option>
+                      {ambulances.map((amb: any) => (
+                        <option key={amb.id} value={amb.id}>
+                          {amb.ambulanceId}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="form-hint">Leave blank to create an unassigned crew member.</span>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="form-label">Facility (Optional)</label>

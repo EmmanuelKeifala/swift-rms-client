@@ -12,51 +12,56 @@ import { UserType } from '@/types';
  * - AMBULANCE_DISPATCH: Triage calls, dispatch ambulances (Call Centre)
  * - PHU_STAFF: Basic referral operations (PHU level)
  * - SPECIALIST: Specialist consultations
+ * - NEMS: National Emergency Medical Service - patients, referrals (reroute), ambulances, call centre, facilities
+ * - AMBULANCE_CREW: Ambulance crew with assigned vehicle access
  */
 
 export const PERMISSIONS = {
   // Dashboard access
-  DASHBOARD: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
+  DASHBOARD: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'AMBULANCE_CREW', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
   
   // I Referral management
-  REFERRALS_VIEW: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN', 'AMBULANCE_DISPATCH'] as UserType[],
-  REFERRALS_CREATE: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'SYSTEM_ADMIN'] as UserType[],
-  REFERRALS_ACCEPT_REJECT: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SYSTEM_ADMIN', 'AMBULANCE_DISPATCH'] as UserType[],
+  REFERRALS_VIEW: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'DISTRICT_HEALTH', 'SYSTEM_ADMIN', 'AMBULANCE_DISPATCH', 'AMBULANCE_CREW', 'NEMS'] as UserType[],
+  REFERRALS_CREATE: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+  REFERRALS_ACCEPT_REJECT: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SYSTEM_ADMIN', 'AMBULANCE_DISPATCH', 'NEMS'] as UserType[],
   
   // Patient management
-  PATIENTS_VIEW: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
-  PATIENTS_CREATE: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'SYSTEM_ADMIN'] as UserType[],
+  PATIENTS_VIEW: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'DISTRICT_HEALTH', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+  PATIENTS_CREATE: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
   
   // Facilities
-  FACILITIES_VIEW: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
+  FACILITIES_VIEW: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'AMBULANCE_CREW', 'DISTRICT_HEALTH', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
   
   // Readiness - Facility level users + Ambulance Dispatch (for multi-facility view)
-  READINESS_VIEW: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
-  READINESS_UPDATE: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SYSTEM_ADMIN'] as UserType[],
-  
+  READINESS_VIEW: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'DISTRICT_HEALTH', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+  READINESS_UPDATE: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+
   // Counter-referrals
-  COUNTER_REFERRALS: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SYSTEM_ADMIN'] as UserType[],
-  
+  COUNTER_REFERRALS: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+
   // Triage
-  TRIAGE: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'SYSTEM_ADMIN'] as UserType[],
-  
+  TRIAGE: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'AMBULANCE_DISPATCH', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+
   // Clinician Workflow - Hospital and specialist use
-  CLINICIAN_WORKFLOW: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'SYSTEM_ADMIN'] as UserType[],
+  CLINICIAN_WORKFLOW: ['HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
   
   // Call Centre - Emergency coordinators only
-  CALL_CENTRE: ['AMBULANCE_DISPATCH', 'SYSTEM_ADMIN'] as UserType[],
+  CALL_CENTRE: ['AMBULANCE_DISPATCH', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
   
   // Ambulances
-  AMBULANCES: ['AMBULANCE_DISPATCH', 'SYSTEM_ADMIN'] as UserType[],
+  AMBULANCES: ['AMBULANCE_DISPATCH', 'AMBULANCE_CREW', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
   
   // Analytics - District and above
-  ANALYTICS: ['DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
-  
+  ANALYTICS: ['DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+
+  // District Dashboard - District level users
+  DISTRICT_DASHBOARD: ['DISTRICT_HEALTH', 'SYSTEM_ADMIN'] as UserType[],
+
+  // National Dashboard - National level users
+  NATIONAL_DASHBOARD: ['NATIONAL_USER', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+
   // Reports - District and above
-  REPORTS: ['DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
-  
-  // RC Tracker - Referral Coordinators and district level
-  RC_TRACKER: ['REFERRAL_COORDINATOR', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
+  REPORTS: ['DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
   
   // Admin - System admin only
   ADMIN_USERS: ['SYSTEM_ADMIN'] as UserType[],
@@ -64,8 +69,8 @@ export const PERMISSIONS = {
   ADMIN_SETTINGS: ['SYSTEM_ADMIN'] as UserType[],
   
   // Profile - All users
-  PROFILE: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
-  SETTINGS: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN'] as UserType[],
+  PROFILE: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'AMBULANCE_CREW', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
+  SETTINGS: ['PHU_STAFF', 'HOSPITAL_DESK', 'REFERRAL_COORDINATOR', 'SPECIALIST', 'AMBULANCE_DISPATCH', 'AMBULANCE_CREW', 'DISTRICT_HEALTH', 'NATIONAL_USER', 'SYSTEM_ADMIN', 'NEMS'] as UserType[],
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -111,9 +116,10 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/triage': 'TRIAGE',
   '/call-centre': 'CALL_CENTRE',
   '/ambulances': 'AMBULANCES',
+  '/district-dashboard': 'DISTRICT_DASHBOARD',
+  '/national-dashboard': 'NATIONAL_DASHBOARD',
   '/analytics': 'ANALYTICS',
   '/reports': 'REPORTS',
-  '/rc-tracker': 'RC_TRACKER',
   '/clinician-workflow': 'CLINICIAN_WORKFLOW',
   '/admin/users': 'ADMIN_USERS',
   '/admin/facilities': 'ADMIN_FACILITIES',
@@ -127,6 +133,11 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
  */
 export function canAccessRoute(userType: UserType | undefined, pathname: string): boolean {
   if (!userType) return false;
+
+  // National users can only access the national dashboard
+  if (userType === 'NATIONAL_USER') {
+    return pathname === '/national-dashboard' || pathname.startsWith('/national-dashboard/');
+  }
   
   // Find matching route permission
   const route = Object.keys(ROUTE_PERMISSIONS).find(r => {

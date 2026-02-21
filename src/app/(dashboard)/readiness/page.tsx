@@ -1053,9 +1053,11 @@ export default function ReadinessPage() {
   const [expandedFacility, setExpandedFacility] = useState<string | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<FacilityReadiness | null>(null);
 
-  // Check if user is admin or ambulance dispatch
-  const isMultiFacilityView = user?.userType === 'SYSTEM_ADMIN' || 
+  // Check if user is admin, NEMS, or ambulance dispatch/crew
+  const isMultiFacilityView = user?.userType === 'SYSTEM_ADMIN' ||
+                               user?.userType === 'NEMS' ||
                                user?.userType === 'AMBULANCE_DISPATCH' ||
+                               user?.userType === 'AMBULANCE_CREW' ||
                                user?.userType === 'NATIONAL_USER' ||
                                user?.userType === 'DISTRICT_HEALTH';
 

@@ -8,6 +8,8 @@ import {
   TimelineEntry,
   AddNoteRequest,
   ClinicianReviewRequest,
+  AssignAmbulanceRequest,
+  AssignAmbulanceResponse,
   ApiResponse,
   PaginationMeta,
 } from '@/types';
@@ -93,6 +95,12 @@ export const referralService = {
   // Clinician review for Journey 3
   clinicianReview: async (id: string, data: ClinicianReviewRequest): Promise<Referral> => {
     const response = await apiClient.post<ApiResponse<Referral>>(`/referrals/${id}/clinician-review`, data);
+    return response.data.data!;
+  },
+
+  // Assign ambulance to pending referral
+  assignAmbulance: async (id: string, data: AssignAmbulanceRequest): Promise<AssignAmbulanceResponse> => {
+    const response = await apiClient.post<ApiResponse<AssignAmbulanceResponse>>(`/referrals/${id}/assign-ambulance`, data);
     return response.data.data!;
   },
 };

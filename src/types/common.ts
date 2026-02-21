@@ -48,10 +48,12 @@ export type UserType =
   | 'HOSPITAL_DESK'
   | 'SPECIALIST'
   | 'AMBULANCE_DISPATCH'
+  | 'AMBULANCE_CREW'
   | 'REFERRAL_COORDINATOR'
   | 'DISTRICT_HEALTH'
   | 'NATIONAL_USER'
-  | 'SYSTEM_ADMIN';
+  | 'SYSTEM_ADMIN'
+  | 'NEMS';
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 

@@ -70,4 +70,14 @@ export const facilityService = {
     const response = await apiClient.get<ApiResponse<FacilityStats>>('/facilities/stats');
     return response.data.data!;
   },
+
+  getDistricts: async (): Promise<{ id: string; name: string; code: string }[]> => {
+    const response = await apiClient.get<ApiResponse<{ id: string; name: string; code: string }[]>>('/districts');
+    return response.data.data || [];
+  },
+
+  getReferralCount: async (id: string): Promise<number> => {
+    const response = await apiClient.get<ApiResponse<{ facilityId: string; count: number }>>(`/facilities/${id}/referrals/count`);
+    return response.data.data?.count || 0;
+  },
 };

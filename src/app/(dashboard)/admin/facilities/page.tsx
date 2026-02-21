@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui';
 import { facilityService } from '@/lib/api';
-import { Facility, FacilityStats } from '@/types';
+import { Facility } from '@/types';
 import { 
   Building2, 
   Search,
@@ -71,8 +71,7 @@ export default function AdminFacilitiesPage() {
 
   // Define columns
   const columnHelper = createColumnHelper<Facility>();
-  
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const columns = useMemo(() => [
     columnHelper.accessor('name', {
       header: 'Facility',

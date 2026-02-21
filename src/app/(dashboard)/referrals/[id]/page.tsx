@@ -9,6 +9,7 @@ import { ReferralStatus } from '@/types';
 import { useAuthStore } from '@/store';
 import { canModifyReferral } from '@/lib/referral-auth';
 import { SearchableSelect } from '@/components/ui';
+import { AssignAmbulanceModal } from '@/components/referral/AssignAmbulanceModal';
 import { 
   ArrowLeft, 
   Circle, 
@@ -23,7 +24,8 @@ import {
   FileText,
   Activity,
   Heart,
-  Thermometer
+  Thermometer,
+  Ambulance
 } from 'lucide-react';
 
 function PriorityBadge({ priority }: { priority: string }) {
@@ -63,6 +65,7 @@ export default function ReferralDetailPage() {
   const [showRedirectModal, setShowRedirectModal] = useState(false);
   const [redirectFacilityId, setRedirectFacilityId] = useState('');
   const [redirectReason, setRedirectReason] = useState('');
+  const [showAssignAmbulanceModal, setShowAssignAmbulanceModal] = useState(false);
 
   // Get user for permission checks (must be before conditional returns)
   const user = useAuthStore(state => state.user);
@@ -133,6 +136,15 @@ export default function ReferralDetailPage() {
   const hasPermission = canModifyReferral(user, referral);
   const canAccept = referral.status === 'PENDING' && hasPermission;
   const canMarkArrived = (referral.status === 'ACCEPTED' || referral.status === 'IN_TRANSIT') && hasPermission;
+  const canAssignAmbulance = referral.status === 'PENDING' && 
+    (user?.userType === 'SYSTEM_ADMIN' || user?.userType === 'NEMS' || user?.userType === 'AMBULANCE_DISPATCH');
+  const dangerSignScore = Number.isFinite(referral.dangerSignScore)
+    ? referral.dangerSignScore
+    : 0;
+  const riskLabel = dangerSignScore >= 7 ? 'Critical Risk'
+    : dangerSignScore >= 4 ? 'Moderate Risk'
+      : 'Low Risk';
+  const dangerSigns = referral.dangerSigns ?? [];
 
   return (
     <>
@@ -158,7 +170,7 @@ export default function ReferralDetailPage() {
         </div>
       </div>
 
-      {(canAccept || canMarkArrived) && (
+      {(canAccept || canMarkArrived || canAssignAmbulance) && (
         <div className="card mb-4 flex gap-2" style={{ flexWrap: 'wrap' }}>
           {canAccept && (
             <>
@@ -196,6 +208,17 @@ export default function ReferralDetailPage() {
             >
               <MapPin size={16} />
               Mark Arrived
+            </button>
+          )}
+          {canAssignAmbulance && (
+            <button 
+              className="btn btn-primary"
+              onClick={() => setShowAssignAmbulanceModal(true)}
+              disabled={updateMutation.isPending}
+              style={{ background: '#3b82f6', borderColor: '#3b82f6' }}
+            >
+              <Ambulance size={16} />
+              Assign Ambulance
             </button>
           )}
         </div>
@@ -306,10 +329,10 @@ export default function ReferralDetailPage() {
               <Clock size={16} />
               Response & Timing
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
               {/* Response Time */}
-              <div className="metric-card">
-                <div className="text-xs text-muted mb-1">Response Time</div>
+              <div className="metric-card metric-card-inline">
+                <div className="text-xs text-muted">Response Time</div>
                 <div className="font-bold" style={{ 
                   color: referral.responseTimeMinutes !== undefined && referral.responseTimeMinutes > 30 
                     ? 'var(--danger)' 
@@ -322,8 +345,8 @@ export default function ReferralDetailPage() {
               </div>
 
               {/* ETA Status */}
-              <div className="metric-card">
-                <div className="text-xs text-muted mb-1">Expected Arrival</div>
+              <div className="metric-card metric-card-inline">
+                <div className="text-xs text-muted">Expected Arrival</div>
                 <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
                   {referral.expectedArrival 
                     ? new Date(referral.expectedArrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -332,26 +355,28 @@ export default function ReferralDetailPage() {
               </div>
 
               {/* Delay */}
-              <div className={`metric-card ${referral.delayMinutes !== undefined && referral.delayMinutes > 15 ? 'metric-card-danger' : referral.delayMinutes !== undefined && referral.delayMinutes > 0 ? 'metric-card-warning' : ''}`}>
-                <div className="text-xs text-muted mb-1">Delay</div>
-                <div className="font-bold" style={{ 
+              <div className={`metric-card metric-card-inline ${referral.delayMinutes !== undefined && referral.delayMinutes > 15 ? 'metric-card-danger' : referral.delayMinutes !== undefined && referral.delayMinutes > 0 ? 'metric-card-warning' : ''}`}>
+                <div className="text-xs text-muted">Delay</div>
+                <div className="font-bold" style={{
                   color: referral.delayMinutes !== undefined && referral.delayMinutes > 0
                     ? referral.delayMinutes > 15 ? 'var(--danger)' : 'var(--warning)'
-                    : referral.delayMinutes !== undefined && referral.delayMinutes <= 0 
-                      ? 'var(--success)' 
+                    : referral.delayMinutes !== undefined
+                      ? 'var(--success)'
                       : 'var(--text-primary)'
                 }}>
-                  {referral.delayMinutes !== undefined 
-                    ? referral.delayMinutes <= 0 
-                      ? 'On time' 
-                      : `+${referral.delayMinutes} min late`
+                  {referral.delayMinutes !== undefined
+                    ? referral.delayMinutes < 0
+                      ? `Due in ${Math.abs(referral.delayMinutes)} min`
+                      : referral.delayMinutes === 0
+                        ? 'On time'
+                        : `+${referral.delayMinutes} min late`
                     : 'N/A'}
                 </div>
               </div>
 
               {/* Total Duration */}
-              <div className="metric-card">
-                <div className="text-xs text-muted mb-1">Total Duration</div>
+              <div className="metric-card metric-card-inline">
+                <div className="text-xs text-muted">Total Duration</div>
                 <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
                   {referral.totalDurationMinutes !== undefined 
                     ? referral.totalDurationMinutes >= 60 
@@ -388,23 +413,22 @@ export default function ReferralDetailPage() {
               <AlertTriangle size={16} />
               Risk Assessment
             </h3>
-            <div className={`metric-card ${referral.dangerSignScore >= 7 ? 'metric-card-danger' : referral.dangerSignScore >= 4 ? 'metric-card-warning' : 'metric-card-success'}`} style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div className={`metric-card ${dangerSignScore >= 7 ? 'metric-card-danger' : dangerSignScore >= 4 ? 'metric-card-warning' : 'metric-card-success'}`} style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: 'var(--space-4)',
               marginBottom: 'var(--space-4)'
             }}>
               <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {referral.dangerSignScore}/10
+                {dangerSignScore}/10
               </div>
               <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {referral.dangerSignScore >= 7 ? 'Critical Risk' : 
-                 referral.dangerSignScore >= 4 ? 'Moderate Risk' : 'Low Risk'}
+                {riskLabel}
               </div>
             </div>
-            {referral.dangerSigns?.length ? (
+            {dangerSigns.length ? (
               <ul style={{ paddingLeft: 'var(--space-4)', color: 'var(--text-secondary)' }}>
-                {referral.dangerSigns.map((sign, i) => (
+                {dangerSigns.map((sign, i) => (
                   <li key={i} className="text-sm mb-1">{sign}</li>
                 ))}
               </ul>
@@ -571,6 +595,17 @@ export default function ReferralDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Assign Ambulance Modal */}
+      <AssignAmbulanceModal
+        referralId={id}
+        isOpen={showAssignAmbulanceModal}
+        onClose={() => setShowAssignAmbulanceModal(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['referral', id] });
+          queryClient.invalidateQueries({ queryKey: ['referrals'] });
+        }}
+      />
     </>
   );
 }

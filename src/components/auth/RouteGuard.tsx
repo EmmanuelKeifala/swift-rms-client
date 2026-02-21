@@ -23,8 +23,13 @@ export function RouteGuard({ children }: RouteGuardProps) {
     }
 
     if (!canAccessRoute(user?.userType, pathname)) {
-      // Redirect to dashboard if user doesn't have access
-      router.push('/');
+      // Redirect national users to national dashboard
+      if (user?.userType === 'NATIONAL_USER') {
+        router.push('/national-dashboard');
+      } else {
+        // Redirect other users to dashboard if they don't have access
+        router.push('/');
+      }
     }
   }, [isAuthenticated, isLoading, pathname, router, user?.userType]);
 

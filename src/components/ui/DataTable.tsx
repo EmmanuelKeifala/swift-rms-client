@@ -50,6 +50,11 @@ export function DataTable<TData>({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    globalFilterFn: (row, columnId, filterValue) => {
+      const value = row.getValue(columnId);
+      if (value == null) return false;
+      return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+    },
   });
 
   return (

@@ -25,8 +25,10 @@ export const readinessService = {
     return data && data.length > 0 ? data[0] : null;
   },
 
-  getAllCurrent: async (): Promise<FacilityReadiness[]> => {
-    const response = await apiClient.get<ApiResponse<FacilityReadiness[]>>('/facility-readiness/current');
+  getAllCurrent: async (districtId?: string): Promise<FacilityReadiness[]> => {
+    const response = await apiClient.get<ApiResponse<FacilityReadiness[]>>('/facility-readiness/current', {
+      params: districtId ? { districtId } : undefined
+    });
     // Returns all facilities' current readiness for admin/dispatch users
     return response.data.data || [];
   },

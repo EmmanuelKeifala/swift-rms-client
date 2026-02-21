@@ -11,6 +11,7 @@ export interface CreateUserRequest {
   password: string;
   userType: UserType;
   facilityId?: string;
+  ambulanceId?: string;
 }
 
 export interface UpdateUserRequest {
@@ -20,6 +21,7 @@ export interface UpdateUserRequest {
   userType?: UserType;
   status?: UserStatus;
   facilityId?: string;
+  ambulanceId?: string;
   avatarUrl?: string;
 }
 
@@ -33,6 +35,7 @@ export interface UpdateProfileRequest {
 export interface UserListQuery {
   userType?: UserType;
   facilityId?: string;
+  ambulanceId?: string;
   status?: UserStatus;
   districtId?: string;
   page?: number;
